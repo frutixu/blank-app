@@ -305,7 +305,7 @@
     /* ── Tree Nodes ── */
     .tree-node {
       background: var(--card); border: 2px solid var(--border); border-radius: var(--radius);
-      padding: 10px 14px; text-align: center; min-width: 110px; max-width: 160px;
+      padding: 12px 16px; text-align: center; min-width: 120px; max-width: 180px;
       cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
       position: relative; box-shadow: var(--shadow); -webkit-tap-highlight-color: transparent;
     }
@@ -1579,6 +1579,67 @@
       }
 
       treeContainer.appendChild(treeRoot);
+
+      // ── Align secondary branches to match global generation levels ──
+      // If a secondary root has children rendered in the main tree,
+      // offset the secondary branch so siblings appear on the same Y level.
+      requestAnimationFrame(() => {
+        const rootBranches = Array.from(treeRoot.children);
+        if (rootBranches.length < 2) return;
+        const mainBranch = rootBranches[0];
+
+        // Temporarily remove transform so measurements are in unscaled space
+        const savedTransform = treeContainer.style.transform;
+        treeContainer.style.transform = 'none';
+
+        function midY(el) {
+          const r = el.getBoundingClientRect();
+          return (r.top + r.bottom) / 2;
+        }
+
+        for (let i = 1; i < rootBranches.length; i++) {
+          const branch = rootBranches[i];
+          const branchNodes = branch.querySelectorAll('.tree-node');
+          let bestOffset = null;
+
+          // Pass 1: Best match — find a sibling in the main tree (most precise)
+          for (const node of branchNodes) {
+            const memberId = node.getAttribute('data-member-id');
+            const member = members.find(m => m.id === memberId);
+            if (!member || !member.parentId) continue;
+            const siblings = members.filter(m => m.parentId === member.parentId && m.id !== memberId);
+            for (const sib of siblings) {
+              const sibEl = mainBranch.querySelector(`[data-member-id="${sib.id}"]`);
+              if (sibEl) { bestOffset = midY(sibEl) - midY(node); break; }
+            }
+            if (bestOffset !== null) break;
+          }
+          // Pass 2: Fallback — parent whose child is in the main tree
+          if (bestOffset === null) {
+            for (const node of branchNodes) {
+              const memberId = node.getAttribute('data-member-id');
+              const childrenInMain = members.filter(m => m.parentId === memberId);
+              for (const child of childrenInMain) {
+                const childEl = mainBranch.querySelector(`[data-member-id="${child.id}"]`);
+                if (!childEl) continue;
+                const mainRoot = mainBranch.querySelector('.tree-node');
+                const mainChild = mainBranch.querySelector('.tree-branch[data-depth="1"] .tree-node');
+                const levelH = (mainRoot && mainChild) ? midY(mainChild) - midY(mainRoot) : 100;
+                bestOffset = midY(childEl) - levelH - midY(node);
+                break;
+              }
+              if (bestOffset !== null) break;
+            }
+          }
+
+          if (bestOffset !== null && Math.abs(bestOffset) > 2) {
+            branch.style.marginTop = bestOffset + 'px';
+          }
+        }
+
+        // Restore transform
+        treeContainer.style.transform = savedTransform;
+      });
 
       // ── Draw SVG overlay lines (cross-tree spouses + unofficial bonds) ──
       requestAnimationFrame(() => {
