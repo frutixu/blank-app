@@ -1370,11 +1370,7 @@
 
       function getCouple(member) {
         const spouse = member.spouseId ? members.find(x => x.id === member.spouseId) : null;
-        if (!spouse || rendered.has(spouse.id)) return null;
-        // Don't pull a spouse who has their own parent in the tree —
-        // they should be rendered in their parent's branch instead.
-        if (spouse.parentId && members.some(x => x.id === spouse.parentId)) return null;
-        return spouse;
+        return (spouse && !rendered.has(spouse.id)) ? spouse : null;
       }
 
       function getAllChildren(member, spouse) {
@@ -1382,16 +1378,24 @@
         const spouseChildren = (spouse && childrenOf.has(spouse.id))
           ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
           : [];
-        // Also include children of member's spouse even when spouse is rendered elsewhere
-        if (!spouse && member.spouseId) {
-          const remoteSpouse = members.find(x => x.id === member.spouseId);
-          if (remoteSpouse && childrenOf.has(remoteSpouse.id)) {
-            const remoteChildren = childrenOf.get(remoteSpouse.id)
-              .filter(c => !children.some(ch => ch.id === c.id));
-            return [...children, ...remoteChildren];
+        return [...children, ...spouseChildren];
+      }
+
+      // Count descendants to determine tree size
+      function countDescendants(memberId, visited) {
+        if (visited.has(memberId)) return 0;
+        visited.add(memberId);
+        let count = 1;
+        const children = childrenOf.get(memberId) || [];
+        for (const c of children) count += countDescendants(c.id, visited);
+        const m = members.find(x => x.id === memberId);
+        if (m && m.spouseId) {
+          const spouseChildren = childrenOf.get(m.spouseId) || [];
+          for (const c of spouseChildren) {
+            if (!visited.has(c.id)) count += countDescendants(c.id, visited);
           }
         }
-        return [...children, ...spouseChildren];
+        return count;
       }
 
       function buildBranch(member, depth) {
@@ -1518,20 +1522,29 @@
       // ── Build the full tree ──
       // Filter roots: exclude spouse-only members whose partner has a parent
       // (they'll be rendered alongside their partner in the tree)
-      const roots = members.filter(m => {
-        if (m.parentId) return false;
-        // Exclude spouse-only members whose partner has a parent
-        // (they'll be rendered via getCouple alongside their partner)
+      // Collect roots and sort by tree size (largest first)
+      // so the main family renders first and claims shared members
+      const roots = members.filter(m => !m.parentId);
+      roots.sort((a, b) => {
+        const sizeA = countDescendants(a.id, new Set());
+        const sizeB = countDescendants(b.id, new Set());
+        return sizeB - sizeA;
+      });
+
+      // Exclude spouse-only roots whose partner has a parent
+      // (they'll be rendered via getCouple alongside their partner)
+      const filteredRoots = roots.filter(m => {
         if (m.spouseId) {
           const spouse = members.find(x => x.id === m.spouseId);
           if (spouse && spouse.parentId && members.some(x => x.id === spouse.parentId)) return false;
         }
         return true;
       });
+
       const treeRoot = document.createElement('div');
       treeRoot.className = 'tree-root';
 
-      for (const root of roots) {
+      for (const root of filteredRoots) {
         if (rendered.has(root.id)) continue;
         const node = buildBranch(root, 0);
         if (node) treeRoot.appendChild(node);
@@ -1551,17 +1564,24 @@
         const lines = [];
         const seen = new Set();
 
-        // Cross-tree spouse links (spouses rendered in separate branches)
+        // Cross-tree parent→child links (when child was rendered in spouse's branch)
         for (const m of members) {
-          if (!m.spouseId) continue;
-          const key = [m.id, m.spouseId].sort().join(':');
-          if (seen.has(key)) continue;
-          const spouse = members.find(x => x.id === m.spouseId);
-          if (!spouse) continue;
-          // Only draw if both have their own parentId (rendered in separate branches)
-          if (m.parentId && spouse.parentId) {
-            seen.add(key);
-            lines.push({ from: m.id, to: m.spouseId, label: 'Spouse', style: 'spouse' });
+          if (!m.parentId) continue;
+          const parent = members.find(x => x.id === m.parentId);
+          if (!parent) continue;
+          // Check if this child is NOT directly under their parent in the tree
+          const parentEl = treeContainer.querySelector(`[data-member-id="${parent.id}"]`);
+          const childEl = treeContainer.querySelector(`[data-member-id="${m.id}"]`);
+          if (!parentEl || !childEl) continue;
+          // If the child's branch is not a descendant of parent's branch, draw a link
+          const parentBranch = parentEl.closest('.tree-branch');
+          const childBranch = childEl.closest('.tree-branch');
+          if (parentBranch && childBranch && !parentBranch.contains(childBranch)) {
+            const key = parent.id + ':' + m.id;
+            if (!seen.has(key)) {
+              seen.add(key);
+              lines.push({ from: parent.id, to: m.id, label: 'Child', style: 'spouse' });
+            }
           }
         }
 
