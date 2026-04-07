@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>TreeFam - Family Tree Builder</title>
+  <style>
+    :root {
+      --bg: #f5f0eb;
+      --card: #ffffff;
+      --primary: #4a7c59;
+      --primary-dark: #3a6347;
+      --blood: #c0392b;
+      --family: #2980b9;
+      --text: #2c3e50;
+      --text-light: #7f8c8d;
+      --border: #ddd;
+      --shadow: 0 2px 8px rgba(0,0,0,0.1);
+      --radius: 12px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    body.modal-open { overflow: hidden; }
+
+    /* ── Lock Screen ── */
+    .lock-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--primary);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 24px;
+    }
+
+    .lock-screen.hidden { display: none; }
+
+    .lock-box {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 40px 28px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .lock-box h1 {
+      font-size: 1.6rem;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .lock-box h1 span { font-weight: 300; color: var(--text-light); }
+
+    .lock-box p {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-bottom: 24px;
+    }
+
+    .lock-box .lock-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 20px;
+      background: var(--bg);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lock-box .lock-icon svg {
+      width: 28px;
+      height: 28px;
+      color: var(--primary);
+    }
+
+    .lock-input-group {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .lock-input-group input {
+      width: 100%;
+      padding: 14px 48px 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color 0.2s;
+    }
+
+    .lock-input-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .lock-input-group .toggle-pw {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-light);
+      padding: 4px;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .lock-error {
+      color: var(--blood);
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      min-height: 1.2em;
+    }
+
+    .lock-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+
+    .lock-btn:hover { background: var(--primary-dark); }
+    .lock-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── App Shell (hidden until unlocked) ── */
+    .app-shell { display: none; }
+    .app-shell.unlocked { display: block; }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.5px; }
+    header h1 span { font-weight: 300; opacity: 0.8; }
+    .header-actions { display: flex; gap: 8px; }
+
+    .btn-icon {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .btn-icon:hover, .btn-icon:focus-visible { background: rgba(255,255,255,0.25); }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 99;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-light);
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+    .tab[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Views ── */
+    .view { display: none; padding: 16px; max-width: 800px; margin: 0 auto; }
+    .view.active { display: block; }
+
+    #tree-view { padding: 16px; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    .tree-container {
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 10px;
+    }
+
+    .tree-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-light);
+    }
+
+    .tree-empty svg { width: 80px; height: 80px; opacity: 0.3; margin-bottom: 16px; }
+    .tree-empty p { font-size: 1rem; margin-bottom: 8px; }
+    .tree-empty small { font-size: 0.85rem; }
+
+    /* ── Tree Nodes ── */
+    .tree-level {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+
+    .tree-branch {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tree-couple {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .couple-link {
+      width: 14px;
+      height: 2px;
+      background: var(--family);
+      flex-shrink: 0;
+    }
+
+    .tree-node {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      text-align: center;
+      min-width: 100px;
+      max-width: 150px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      box-shadow: var(--shadow);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tree-node:hover, .tree-node:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .tree-node[data-line="blood"] { border-color: var(--blood); }
+    .tree-node[data-line="family"] { border-color: var(--family); }
+
+    .node-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .node-info {
+      font-size: 0.7rem;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+
+    .node-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 0.6rem;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+
+    .node-badge[data-line="blood"] { background: var(--blood); }
+    .node-badge[data-line="family"] { background: var(--family); }
+
+    .tree-connector {
+      display: flex;
+      justify-content: center;
+      margin: 4px 0;
+    }
+
+    .tree-connector .vline {
+      width: 2px;
+      height: 20px;
+      background: var(--blood);
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .legend-dot.blood { background: var(--blood); }
+    .legend-dot.family { background: var(--family); }
+
+    /* ── Members List ── */
+    .member-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .member-card:active { transform: scale(0.98); }
+
+    .member-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .member-avatar[data-line="blood"] { background: var(--blood); }
+    .member-avatar[data-line="family"] { background: var(--family); }
+
+    .member-details { flex: 1; min-width: 0; }
+    .member-details .member-name { font-size: 0.95rem; font-weight: 600; margin: 0; }
+    .member-details .member-info { font-size: 0.8rem; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+
+    .member-line-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .member-line-tag[data-line="blood"] { background: var(--blood); }
+    .member-line-tag[data-line="family"] { background: var(--family); }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-size: 1.8rem;
+      line-height: 1;
+      box-shadow: 0 4px 16px rgba(74,124,89,0.4);
+      cursor: pointer;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .fab:hover, .fab:focus-visible { background: var(--primary-dark); transform: scale(1.05); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+      -webkit-backdrop-filter: blur(2px);
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-light);
+      cursor: pointer;
+      padding: 4px 8px;
+      line-height: 1;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .line-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .line-toggle button {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: var(--text);
+    }
+
+    .line-toggle button[aria-pressed="true"][data-type="blood"] {
+      border-color: var(--blood);
+      background: rgba(192,57,43,0.1);
+      color: var(--blood);
+    }
+
+    .line-toggle button[aria-pressed="true"][data-type="family"] {
+      border-color: var(--family);
+      background: rgba(41,128,185,0.1);
+      color: var(--family);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover { background: var(--primary-dark); }
+
+    .btn-danger {
+      width: 100%;
+      padding: 12px;
+      background: none;
+      color: var(--blood);
+      border: 1.5px solid var(--blood);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+
+    .btn-danger:hover { background: rgba(192,57,43,0.08); }
+
+    /* ── Filter / Search ── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      font-family: inherit;
+      color: var(--text);
+    }
+
+    .filter-pill[aria-pressed="true"] {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .search-bar {
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 14px 10px 38px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      background: var(--card);
+      font-family: inherit;
+      color: var(--text);
+    }
+
+    .search-bar input:focus { outline: none; border-color: var(--primary); }
+
+    .search-bar .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-light);
+    }
+
+    /* ── Confirm Dialog ── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .confirm-overlay.open { display: flex; }
+
+    .confirm-box {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 340px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .confirm-box p { margin-bottom: 20px; font-size: 0.95rem; }
+
+    .confirm-actions { display: flex; gap: 10px; }
+
+    .confirm-actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      border: none;
+    }
+
+    .confirm-actions .cancel-btn { background: var(--bg); color: var(--text); }
+    .confirm-actions .delete-btn { background: var(--blood); color: white; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--text);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      z-index: 400;
+      transition: transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Stats / Settings ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+    .stat-card .stat-label { font-size: 0.75rem; color: var(--text-light); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card.blood-stat .stat-value { color: var(--blood); }
+    .stat-card.family-stat .stat-value { color: var(--family); }
+
+    .settings-section {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .settings-section h3 { font-size: 0.9rem; margin-bottom: 12px; color: var(--text-light); }
+
+    .settings-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-family: inherit;
+      margin-bottom: 8px;
+      text-align: left;
+      color: var(--text);
+      transition: border-color 0.2s;
+    }
+
+    .settings-btn:hover { border-color: var(--primary); }
+    .settings-btn.danger { color: var(--blood); border-color: var(--blood); }
+
+    /* ── Responsive ── */
+    @media (min-width: 600px) {
+      .modal { border-radius: 20px; margin-bottom: 40px; }
+      .modal-overlay { align-items: center; }
+      header + .tabs { top: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Lock Screen ── -->
+  <div class="lock-screen" id="lock-screen" role="dialog" aria-label="Login">
+    <div class="lock-box">
+      <div class="lock-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h1>TreeFam <span>Family Tree</span></h1>
+      <p>Enter password to access your family tree</p>
+      <div class="lock-input-group">
+        <input type="password" id="lock-password" placeholder="Password" autocomplete="off" autofocus aria-label="Password">
+        <button class="toggle-pw" id="toggle-pw" type="button" aria-label="Show password">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="lock-error" id="lock-error" role="alert"></div>
+      <button class="lock-btn" id="lock-btn" type="button">Unlock</button>
+    </div>
+  </div>
+
+  <!-- ── App Shell ── -->
+  <div class="app-shell" id="app-shell">
+
+    <header>
+      <h1>TreeFam <span>Family Tree</span></h1>
+      <div class="header-actions">
+        <button class="btn-icon" id="btn-export" title="Export" aria-label="Export data">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="btn-icon" id="btn-import" title="Import" aria-label="Import data">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </button>
+        <input type="file" id="import-file" accept=".json" style="display:none" aria-hidden="true">
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Main navigation">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="tree-view" data-view="tree-view">Tree</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="members-view" data-view="members-view">Members</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="settings-view" data-view="settings-view">Settings</button>
+    </nav>
+
+    <div id="tree-view" class="view active" role="tabpanel">
+      <div class="legend" aria-label="Legend">
+        <div class="legend-item"><div class="legend-dot blood"></div> Bloodline</div>
+        <div class="legend-item"><div class="legend-dot family"></div> Family (marriage / adoption)</div>
+      </div>
+      <div class="tree-container" id="tree-container"></div>
+    </div>
+
+    <div id="members-view" class="view" role="tabpanel">
+      <div class="search-bar">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="search-input" placeholder="Search members..." aria-label="Search members">
+      </div>
+      <div class="filter-bar" role="group" aria-label="Filter by line type">
+        <button class="filter-pill" aria-pressed="true" data-filter="all">All</button>
+        <button class="filter-pill" aria-pressed="false" data-filter="blood">Bloodline</button>
+        <button class="filter-pill" aria-pressed="false" data-filter="family">Family</button>
+      </div>
+      <div id="members-list"></div>
+    </div>
+
+    <div id="settings-view" class="view" role="tabpanel">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total Members</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-generations">0</div><div class="stat-label">Generations</div></div>
+        <div class="stat-card blood-stat"><div class="stat-value" id="stat-blood">0</div><div class="stat-label">Bloodline</div></div>
+        <div class="stat-card family-stat"><div class="stat-value" id="stat-family">0</div><div class="stat-label">Family Line</div></div>
+      </div>
+      <div class="settings-section">
+        <h3>Data</h3>
+        <button class="settings-btn" id="settings-export">Export as JSON</button>
+        <button class="settings-btn" id="settings-import">Import from JSON</button>
+        <button class="settings-btn danger" id="settings-clear">Delete All Data</button>
+      </div>
+      <div class="settings-section">
+        <h3>Session</h3>
+        <button class="settings-btn" id="settings-lock">Lock App</button>
+      </div>
+    </div>
+
+    <button class="fab" id="fab-add" aria-label="Add family member">+</button>
+
+    <!-- ── Add/Edit Modal ── -->
+    <div class="modal-overlay" id="member-modal" role="dialog" aria-modal="true" aria-label="Member form">
+      <div class="modal">
+        <div class="modal-header">
+          <span id="modal-title">Add Member</span>
+          <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="form-group">
+          <label for="field-first">First Name</label>
+          <input type="text" id="field-first" placeholder="e.g. John" maxlength="50" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="field-last">Last Name</label>
+          <input type="text" id="field-last" placeholder="e.g. Smith" maxlength="50" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="field-birth">Birth Year</label>
+          <input type="number" id="field-birth" placeholder="e.g. 1985" min="0" max="2100">
+        </div>
+        <div class="form-group">
+          <label for="field-death">Death Year (optional)</label>
+          <input type="number" id="field-death" placeholder="Leave empty if alive" min="0" max="2100">
+        </div>
+        <div class="form-group">
+          <label for="field-gender">Gender</label>
+          <select id="field-gender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Line Type</label>
+        </div>
+        <div class="line-toggle" role="group" aria-label="Line type">
+          <button id="toggle-blood" data-type="blood" aria-pressed="true">Bloodline</button>
+          <button id="toggle-family" data-type="family" aria-pressed="false">Family</button>
+        </div>
+        <div class="form-group">
+          <label for="field-parent">Parent</label>
+          <select id="field-parent"><option value="">None (root member)</option></select>
+        </div>
+        <div class="form-group">
+          <label for="field-spouse">Spouse</label>
+          <select id="field-spouse"><option value="">None</option></select>
+        </div>
+        <button class="btn-primary" id="save-btn">Add Member</button>
+        <button class="btn-danger" id="delete-btn" style="display:none">Delete Member</button>
+      </div>
+    </div>
+
+    <!-- ── Confirm Dialog ── -->
+    <div class="confirm-overlay" id="confirm-dialog" role="alertdialog" aria-modal="true">
+      <div class="confirm-box">
+        <p id="confirm-message">Are you sure?</p>
+        <div class="confirm-actions">
+          <button class="cancel-btn" id="confirm-cancel">Cancel</button>
+          <button class="delete-btn" id="confirm-action-btn">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+  'use strict';
+  (() => {
+    // ── Password Hash (SHA-256 of the password) ──
+    const PW_HASH = '19e3a3d473d5f3e0e2d589d65f78dfa1743b888eac1081247c79c8ef88fa54a6';
+    const SESSION_KEY = 'treefam_session';
+    const DATA_KEY = 'treefam_members';
+    const MAX_MEMBERS = 500;
+
+    // ── Utility: safe text escaping ──
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── DOM refs ──
+    const $ = (id) => document.getElementById(id);
+    const lockScreen = $('lock-screen');
+    const appShell = $('app-shell');
+    const lockPw = $('lock-password');
+    const lockError = $('lock-error');
+    const lockBtn = $('lock-btn');
+    const togglePw = $('toggle-pw');
+    const treeContainer = $('tree-container');
+    const membersList = $('members-list');
+    const searchInput = $('search-input');
+    const toastEl = $('toast');
+    const memberModal = $('member-modal');
+    const confirmDialog = $('confirm-dialog');
+
+    // ── State ──
+    let members = [];
+    let currentFilter = 'all';
+    let editingId = null;
+    let currentLineType = 'blood';
+    let toastTimer = null;
+    let confirmCallback = null;
+
+    // ── SHA-256 helper ──
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ── Auth ──
+    function isSessionValid() {
+      const ts = sessionStorage.getItem(SESSION_KEY);
+      if (!ts) return false;
+      // Session valid for 24h
+      return (Date.now() - parseInt(ts, 10)) < 86400000;
+    }
+
+    function grantSession() {
+      sessionStorage.setItem(SESSION_KEY, Date.now().toString());
+    }
+
+    function revokeSession() {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+
+    async function attemptUnlock() {
+      const pw = lockPw.value;
+      if (!pw) { lockError.textContent = 'Please enter a password'; return; }
+      lockBtn.disabled = true;
+      lockBtn.textContent = 'Verifying...';
+      const hash = await sha256(pw);
+      if (hash === PW_HASH) {
+        grantSession();
+        unlock();
+      } else {
+        lockError.textContent = 'Incorrect password';
+        lockPw.value = '';
+        lockPw.focus();
+      }
+      lockBtn.disabled = false;
+      lockBtn.textContent = 'Unlock';
+    }
+
+    function unlock() {
+      lockScreen.classList.add('hidden');
+      appShell.classList.add('unlocked');
+      loadData();
+      renderAll();
+    }
+
+    function lock() {
+      revokeSession();
+      appShell.classList.remove('unlocked');
+      lockScreen.classList.remove('hidden');
+      lockPw.value = '';
+      lockError.textContent = '';
+      lockPw.focus();
+    }
+
+    // Lock screen events
+    lockBtn.addEventListener('click', attemptUnlock);
+    lockPw.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptUnlock(); });
+    togglePw.addEventListener('click', () => {
+      const isHidden = lockPw.type === 'password';
+      lockPw.type = isHidden ? 'text' : 'password';
+      togglePw.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    });
+
+    // ── Data layer ──
+    function genId() {
+      const arr = new Uint8Array(8);
+      crypto.getRandomValues(arr);
+      return Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 12);
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(DATA_KEY);
+        if (!raw) { members = []; return; }
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) { members = []; return; }
+        members = parsed.filter(validateMember).slice(0, MAX_MEMBERS);
+      } catch {
+        members = [];
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(DATA_KEY, JSON.stringify(members));
+    }
+
+    function validateMember(m) {
+      return m
+        && typeof m.id === 'string' && m.id.length > 0
+        && typeof m.firstName === 'string' && m.firstName.length > 0
+        && (m.lineType === 'blood' || m.lineType === 'family')
+        && (m.gender === 'male' || m.gender === 'female' || m.gender === 'other');
+    }
+
+    function sanitizeMember(m) {
+      return {
+        id: String(m.id).slice(0, 20),
+        firstName: String(m.firstName || '').slice(0, 50).trim(),
+        lastName: String(m.lastName || '').slice(0, 50).trim(),
+        birthYear: (typeof m.birthYear === 'number' && m.birthYear >= 0 && m.birthYear <= 2100) ? m.birthYear : null,
+        deathYear: (typeof m.deathYear === 'number' && m.deathYear >= 0 && m.deathYear <= 2100) ? m.deathYear : null,
+        gender: ['male','female','other'].includes(m.gender) ? m.gender : 'other',
+        lineType: m.lineType === 'family' ? 'family' : 'blood',
+        parentId: (typeof m.parentId === 'string') ? m.parentId : null,
+        spouseId: (typeof m.spouseId === 'string') ? m.spouseId : null,
+      };
+    }
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        tab.setAttribute('aria-selected', 'true');
+        $(tab.dataset.view).classList.add('active');
+        if (tab.dataset.view === 'settings-view') updateStats();
+        if (tab.dataset.view === 'tree-view') renderTree();
+        if (tab.dataset.view === 'members-view') renderMembers();
+      });
+    });
+
+    // ── Filters ──
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        currentFilter = pill.dataset.filter;
+        document.querySelectorAll('.filter-pill').forEach(p => p.setAttribute('aria-pressed', p.dataset.filter === currentFilter));
+        renderMembers();
+      });
+    });
+
+    // ── Search (debounced) ──
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(renderMembers, 150);
+    });
+
+    // ── Line type toggle ──
+    function setLineType(type) {
+      currentLineType = type;
+      $('toggle-blood').setAttribute('aria-pressed', type === 'blood');
+      $('toggle-family').setAttribute('aria-pressed', type === 'family');
+    }
+
+    $('toggle-blood').addEventListener('click', () => setLineType('blood'));
+    $('toggle-family').addEventListener('click', () => setLineType('family'));
+
+    // ── Modal management ──
+    function openModal() {
+      memberModal.classList.add('open');
+      document.body.classList.add('modal-open');
+      $('field-first').focus();
+    }
+
+    function closeModal() {
+      memberModal.classList.remove('open');
+      document.body.classList.remove('modal-open');
+    }
+
+    function openAddModal() {
+      editingId = null;
+      $('modal-title').textContent = 'Add Member';
+      $('save-btn').textContent = 'Add Member';
+      $('delete-btn').style.display = 'none';
+      $('field-first').value = '';
+      $('field-last').value = '';
+      $('field-birth').value = '';
+      $('field-death').value = '';
+      $('field-gender').value = 'male';
+      setLineType('blood');
+      populateDropdowns();
+      $('field-parent').value = '';
+      $('field-spouse').value = '';
+      openModal();
+    }
+
+    function openEditModal(id) {
+      const m = members.find(x => x.id === id);
+      if (!m) return;
+      editingId = id;
+      $('modal-title').textContent = 'Edit Member';
+      $('save-btn').textContent = 'Save Changes';
+      $('delete-btn').style.display = 'block';
+      $('field-first').value = m.firstName;
+      $('field-last').value = m.lastName;
+      $('field-birth').value = m.birthYear ?? '';
+      $('field-death').value = m.deathYear ?? '';
+      $('field-gender').value = m.gender;
+      setLineType(m.lineType);
+      populateDropdowns(id);
+      $('field-parent').value = m.parentId || '';
+      $('field-spouse').value = m.spouseId || '';
+      openModal();
+    }
+
+    function populateDropdowns(excludeId) {
+      const parentSelect = $('field-parent');
+      const spouseSelect = $('field-spouse');
+      // Build options using DocumentFragment for performance
+      const buildOptions = (defaultLabel) => {
+        const frag = document.createDocumentFragment();
+        const defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = defaultLabel;
+        frag.appendChild(defOpt);
+        for (const m of members) {
+          if (m.id === excludeId) continue;
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
+          frag.appendChild(opt);
+        }
+        return frag;
+      };
+      parentSelect.innerHTML = '';
+      parentSelect.appendChild(buildOptions('None (root member)'));
+      spouseSelect.innerHTML = '';
+      spouseSelect.appendChild(buildOptions('None'));
+    }
+
+    // ── Save member ──
+    function saveMember() {
+      const firstName = $('field-first').value.trim().slice(0, 50);
+      const lastName = $('field-last').value.trim().slice(0, 50);
+      if (!firstName) { toast('First name is required'); return; }
+
+      const birthVal = $('field-birth').value;
+      const deathVal = $('field-death').value;
+      const birthYear = birthVal ? parseInt(birthVal, 10) : null;
+      const deathYear = deathVal ? parseInt(deathVal, 10) : null;
+
+      if (birthYear !== null && (isNaN(birthYear) || birthYear < 0 || birthYear > 2100)) {
+        toast('Invalid birth year'); return;
+      }
+      if (deathYear !== null && (isNaN(deathYear) || deathYear < 0 || deathYear > 2100)) {
+        toast('Invalid death year'); return;
+      }
+      if (birthYear !== null && deathYear !== null && deathYear < birthYear) {
+        toast('Death year cannot be before birth year'); return;
+      }
+
+      const parentId = $('field-parent').value || null;
+      const spouseId = $('field-spouse').value || null;
+
+      // Prevent self-referencing
+      if (parentId && parentId === editingId) { toast('A member cannot be their own parent'); return; }
+      if (spouseId && spouseId === editingId) { toast('A member cannot be their own spouse'); return; }
+
+      // Prevent circular parent chains
+      if (editingId && parentId) {
+        let current = parentId;
+        const seen = new Set([editingId]);
+        while (current) {
+          if (seen.has(current)) { toast('Circular parent relationship detected'); return; }
+          seen.add(current);
+          const parent = members.find(x => x.id === current);
+          current = parent ? parent.parentId : null;
+        }
+      }
+
+      const data = {
+        firstName,
+        lastName,
+        birthYear,
+        deathYear,
+        gender: $('field-gender').value,
+        lineType: currentLineType,
+        parentId,
+        spouseId,
+      };
+
+      if (editingId) {
+        const idx = members.findIndex(x => x.id === editingId);
+        if (idx !== -1) {
+          const oldMember = members[idx];
+          if (oldMember.spouseId && oldMember.spouseId !== data.spouseId) {
+            const oldSpouse = members.find(x => x.id === oldMember.spouseId);
+            if (oldSpouse && oldSpouse.spouseId === editingId) oldSpouse.spouseId = null;
+          }
+          members[idx] = { ...members[idx], ...data };
+        }
+        toast('Member updated');
+      } else {
+        if (members.length >= MAX_MEMBERS) { toast(`Maximum ${MAX_MEMBERS} members reached`); return; }
+        data.id = genId();
+        members.push(data);
+        toast('Member added');
+      }
+
+      // Sync bidirectional spouse link
+      if (data.spouseId) {
+        const spouse = members.find(x => x.id === data.spouseId);
+        if (spouse) spouse.spouseId = editingId || data.id;
+      }
+
+      saveData();
+      closeModal();
+      renderAll();
+    }
+
+    // ── Delete ──
+    function deleteMember(id) {
+      for (const m of members) {
+        if (m.spouseId === id) m.spouseId = null;
+        if (m.parentId === id) m.parentId = null;
+      }
+      members = members.filter(x => x.id !== id);
+      saveData();
+      renderAll();
+      toast('Member deleted');
+    }
+
+    // ── Confirm dialog ──
+    function openConfirm(message, actionLabel, callback) {
+      $('confirm-message').textContent = message;
+      $('confirm-action-btn').textContent = actionLabel;
+      confirmCallback = callback;
+      confirmDialog.classList.add('open');
+      document.body.classList.add('modal-open');
+    }
+
+    function closeConfirm() {
+      confirmDialog.classList.remove('open');
+      document.body.classList.remove('modal-open');
+      confirmCallback = null;
+    }
+
+    function executeConfirm() {
+      if (confirmCallback) confirmCallback();
+      closeConfirm();
+    }
+
+    // ── Toast ──
+    function toast(msg) {
+      clearTimeout(toastTimer);
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+    }
+
+    // ── Render members list (DOM-based, no innerHTML with user data) ──
+    function renderMembers() {
+      const search = (searchInput.value || '').toLowerCase().trim();
+      const filtered = members.filter(m => {
+        if (currentFilter !== 'all' && m.lineType !== currentFilter) return false;
+        if (search && !(m.firstName + ' ' + (m.lastName || '')).toLowerCase().includes(search)) return false;
+        return true;
+      });
+
+      membersList.innerHTML = '';
+
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'tree-empty';
+        empty.innerHTML = '<p>No members found</p><small>Tap + to add your first family member</small>';
+        membersList.appendChild(empty);
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const m of filtered) {
+        const card = document.createElement('div');
+        card.className = 'member-card';
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('click', () => openEditModal(m.id));
+        card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditModal(m.id); } });
+
+        const avatar = document.createElement('div');
+        avatar.className = 'member-avatar';
+        avatar.setAttribute('data-line', m.lineType);
+        avatar.textContent = ((m.firstName[0] || '') + (m.lastName?.[0] || '')).toUpperCase();
+
+        const details = document.createElement('div');
+        details.className = 'member-details';
+        const nameEl = document.createElement('p');
+        nameEl.className = 'member-name';
+        nameEl.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
+        const infoEl = document.createElement('p');
+        infoEl.className = 'member-info';
+        const years = m.birthYear ? (m.deathYear ? `${m.birthYear} - ${m.deathYear}` : `Born ${m.birthYear}`) : '';
+        const parent = m.parentId ? members.find(x => x.id === m.parentId) : null;
+        const parentInfo = parent ? `Child of ${parent.firstName}` : 'Root member';
+        infoEl.textContent = [years, parentInfo].filter(Boolean).join(' \u00B7 ');
+        details.appendChild(nameEl);
+        details.appendChild(infoEl);
+
+        const tag = document.createElement('span');
+        tag.className = 'member-line-tag';
+        tag.setAttribute('data-line', m.lineType);
+        tag.textContent = m.lineType === 'blood' ? 'Blood' : 'Family';
+
+        card.appendChild(avatar);
+        card.appendChild(details);
+        card.appendChild(tag);
+        frag.appendChild(card);
+      }
+      membersList.appendChild(frag);
+    }
+
+    // ── Render tree (DOM-based, cycle-safe) ──
+    function renderTree() {
+      treeContainer.innerHTML = '';
+
+      if (members.length === 0) {
+        treeContainer.innerHTML =
+          '<div class="tree-empty">' +
+          '<svg viewBox="0 0 100 100"><circle cx="50" cy="30" r="15" fill="none" stroke="currentColor" stroke-width="3"/><line x1="50" y1="45" x2="50" y2="65" stroke="currentColor" stroke-width="3"/><line x1="50" y1="65" x2="30" y2="85" stroke="currentColor" stroke-width="3"/><line x1="50" y1="65" x2="70" y2="85" stroke="currentColor" stroke-width="3"/></svg>' +
+          '<p>Your family tree is empty</p><small>Tap + to add the first member</small></div>';
+        return;
+      }
+
+      // Precompute children index for O(1) lookups
+      const childrenOf = new Map();
+      for (const m of members) {
+        if (m.parentId) {
+          if (!childrenOf.has(m.parentId)) childrenOf.set(m.parentId, []);
+          childrenOf.get(m.parentId).push(m);
+        }
+      }
+
+      const rendered = new Set();
+
+      function buildNode(member, depth) {
+        if (rendered.has(member.id) || depth > 20) return null;
+        rendered.add(member.id);
+
+        const branch = document.createElement('div');
+        branch.className = 'tree-branch';
+
+        // Couple row
+        const couple = document.createElement('div');
+        couple.className = 'tree-couple';
+        couple.appendChild(createNodeEl(member));
+
+        const spouse = member.spouseId ? members.find(x => x.id === member.spouseId) : null;
+        if (spouse && !rendered.has(spouse.id)) {
+          rendered.add(spouse.id);
+          const link = document.createElement('div');
+          link.className = 'couple-link';
+          couple.appendChild(link);
+          couple.appendChild(createNodeEl(spouse));
+        }
+        branch.appendChild(couple);
+
+        // Collect children (from both parent & spouse)
+        const children = childrenOf.get(member.id) || [];
+        const spouseChildren = (spouse && childrenOf.has(spouse.id))
+          ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
+          : [];
+        const allChildren = [...children, ...spouseChildren];
+
+        if (allChildren.length > 0) {
+          const connector = document.createElement('div');
+          connector.className = 'tree-connector';
+          const vline = document.createElement('div');
+          vline.className = 'vline';
+          connector.appendChild(vline);
+          branch.appendChild(connector);
+
+          const level = document.createElement('div');
+          level.className = 'tree-level';
+          for (const child of allChildren) {
+            const childNode = buildNode(child, depth + 1);
+            if (childNode) level.appendChild(childNode);
+          }
+          branch.appendChild(level);
+        }
+
+        return branch;
+      }
+
+      function createNodeEl(m) {
+        const node = document.createElement('div');
+        node.className = 'tree-node';
+        node.setAttribute('data-line', m.lineType);
+        node.setAttribute('role', 'button');
+        node.setAttribute('tabindex', '0');
+        node.addEventListener('click', () => openEditModal(m.id));
+        node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditModal(m.id); } });
+
+        const name = document.createElement('div');
+        name.className = 'node-name';
+        name.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
+
+        const info = document.createElement('div');
+        info.className = 'node-info';
+        info.textContent = (m.birthYear || '?') + (m.deathYear ? ' - ' + m.deathYear : '');
+
+        const badge = document.createElement('div');
+        badge.className = 'node-badge';
+        badge.setAttribute('data-line', m.lineType);
+        badge.textContent = m.lineType === 'blood' ? 'B' : 'F';
+
+        node.appendChild(name);
+        node.appendChild(info);
+        node.appendChild(badge);
+        return node;
+      }
+
+      const roots = members.filter(m => !m.parentId);
+      const topLevel = document.createElement('div');
+      topLevel.className = 'tree-level';
+
+      for (const root of roots) {
+        if (rendered.has(root.id)) continue;
+        const node = buildNode(root, 0);
+        if (node) topLevel.appendChild(node);
+      }
+
+      // Handle orphans whose parents were deleted
+      for (const m of members) {
+        if (rendered.has(m.id)) continue;
+        const node = buildNode(m, 0);
+        if (node) topLevel.appendChild(node);
+      }
+
+      treeContainer.appendChild(topLevel);
+    }
+
+    // ── Stats ──
+    function updateStats() {
+      $('stat-total').textContent = members.length;
+      $('stat-blood').textContent = members.filter(m => m.lineType === 'blood').length;
+      $('stat-family').textContent = members.filter(m => m.lineType === 'family').length;
+
+      // Generations (iterative, no recursion)
+      let maxGen = 0;
+      const depthCache = new Map();
+      for (const m of members) {
+        let depth = 0;
+        let current = m;
+        const chain = [];
+        while (current) {
+          if (depthCache.has(current.id)) { depth += depthCache.get(current.id); break; }
+          chain.push(current.id);
+          depth++;
+          if (!current.parentId) break;
+          const parent = members.find(x => x.id === current.parentId);
+          if (!parent || chain.includes(parent.id)) break;
+          current = parent;
+        }
+        for (let i = 0; i < chain.length; i++) {
+          depthCache.set(chain[i], depth - i);
+        }
+        if (depth > maxGen) maxGen = depth;
+      }
+      $('stat-generations').textContent = maxGen;
+    }
+
+    function renderAll() {
+      renderTree();
+      renderMembers();
+      updateStats();
+    }
+
+    // ── Export / Import ──
+    function exportData() {
+      const data = JSON.stringify(members, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'treefam-export.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast('Data exported');
+    }
+
+    function importData(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { toast('File too large (max 2MB)'); e.target.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!Array.isArray(data)) { toast('Invalid file format'); return; }
+          const validated = data.map(sanitizeMember).filter(validateMember).slice(0, MAX_MEMBERS);
+          if (validated.length === 0) { toast('No valid members found in file'); return; }
+          members = validated;
+          saveData();
+          renderAll();
+          toast(`Imported ${validated.length} members`);
+        } catch {
+          toast('Failed to parse file');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    // ── Event bindings ──
+    $('fab-add').addEventListener('click', openAddModal);
+    $('modal-close').addEventListener('click', closeModal);
+    $('save-btn').addEventListener('click', saveMember);
+    $('delete-btn').addEventListener('click', () => {
+      openConfirm('Delete this member and remove all their relationships?', 'Delete', () => {
+        deleteMember(editingId);
+        closeModal();
+      });
+    });
+
+    $('btn-export').addEventListener('click', exportData);
+    $('settings-export').addEventListener('click', exportData);
+    $('btn-import').addEventListener('click', () => $('import-file').click());
+    $('settings-import').addEventListener('click', () => $('import-file').click());
+    $('import-file').addEventListener('change', importData);
+    $('settings-clear').addEventListener('click', () => {
+      openConfirm('Delete ALL family data? This cannot be undone.', 'Delete All', () => {
+        members = [];
+        saveData();
+        renderAll();
+        toast('All data deleted');
+      });
+    });
+    $('settings-lock').addEventListener('click', lock);
+
+    $('confirm-action-btn').addEventListener('click', executeConfirm);
+    $('confirm-cancel').addEventListener('click', closeConfirm);
+
+    // Close overlays on backdrop click
+    memberModal.addEventListener('click', (e) => { if (e.target === memberModal) closeModal(); });
+    confirmDialog.addEventListener('click', (e) => { if (e.target === confirmDialog) closeConfirm(); });
+
+    // Escape key handling
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (confirmDialog.classList.contains('open')) closeConfirm();
+        else if (memberModal.classList.contains('open')) closeModal();
+      }
+    });
+
+    // ── Init ──
+    if (isSessionValid()) {
+      unlock();
+    } else {
+      lockPw.focus();
+    }
+  })();
+  </script>
+</body>
+</html>
