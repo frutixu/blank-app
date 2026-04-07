@@ -173,7 +173,7 @@
     /* ── Tree Structure ── */
     .tree-root {
       display: flex; justify-content: center; gap: 40px;
-      padding: 10px 0;
+      padding: 10px 0; position: relative;
     }
 
     .tree-branch {
@@ -187,7 +187,7 @@
     }
 
     .couple-link {
-      width: 20px; height: 2px; background: var(--family); flex-shrink: 0;
+      width: 24px; height: 3px; background: var(--family); flex-shrink: 0;
       position: relative;
     }
 
@@ -196,27 +196,39 @@
       transform: translateX(-50%); font-size: 0.55rem; color: var(--family);
     }
 
-    /* Vertical line from couple down to children bar */
+    /* Vertical line from parent down to children */
     .children-group {
       display: flex; flex-direction: column; align-items: center;
       position: relative;
     }
 
     .vert-drop {
-      width: 2px; height: 24px; background: #aaa;
-      margin: 0 auto;
+      width: 3px; height: 28px; background: var(--blood); opacity: 0.6;
+      margin: 0 auto; position: relative;
+    }
+
+    /* Small downward arrow at the end of the drop line */
+    .vert-drop::after {
+      content: ''; position: absolute; bottom: -4px; left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--blood);
+      opacity: 0.6;
     }
 
     /* Horizontal bar connecting siblings */
     .sibling-bar {
       position: relative;
       display: flex; justify-content: center;
-      min-height: 2px;
+      min-height: 3px;
     }
 
     .sibling-bar::before {
       content: ''; position: absolute; top: 0;
-      height: 2px; background: #aaa;
+      height: 3px; background: var(--blood); opacity: 0.45;
+      border-radius: 2px;
       left: var(--bar-left, 50%);
       right: var(--bar-right, 50%);
     }
@@ -228,13 +240,26 @@
     }
 
     .child-drop .vert-drop-child {
-      width: 2px; height: 20px; background: #aaa;
+      width: 3px; height: 22px; background: var(--blood); opacity: 0.45;
     }
 
     /* The row of children */
     .children-row {
       display: flex; justify-content: center; gap: 24px;
       position: relative;
+    }
+
+    /* ── Unofficial bond SVG overlay ── */
+    .bond-overlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; overflow: visible;
+      z-index: 10;
+    }
+
+    .bond-label {
+      font-size: 0.6rem; font-weight: 600;
+      fill: var(--primary); font-family: inherit;
     }
 
     /* ── Tree Nodes ── */
@@ -1339,6 +1364,7 @@
         const node = document.createElement('div');
         node.className = 'tree-node';
         node.setAttribute('data-line', m.lineType);
+        node.setAttribute('data-member-id', m.id);
         node.setAttribute('role', 'button');
         node.setAttribute('tabindex', '0');
         node.addEventListener('click', () => openEditModal(m.id));
@@ -1390,6 +1416,105 @@
       }
 
       treeContainer.appendChild(treeRoot);
+
+      // ── Draw unofficial bonds (dashed SVG lines) ──
+      // These are relationships stored as metadata that aren't structural
+      // (e.g., cousins who consider each other siblings)
+      requestAnimationFrame(() => {
+        const bonds = [];
+        const seen = new Set();
+        for (const m of members) {
+          if (!m.relatedTo || !m.relationship) continue;
+          // Skip structural links that are already drawn (child→parent, spouse)
+          if (m.relationship === 'child' && m.parentId === m.relatedTo) continue;
+          if (m.relationship === 'spouse' && m.spouseId === m.relatedTo) continue;
+          // Skip if the sibling relationship is already structurally shown (same parent)
+          if (m.relationship === 'sibling') {
+            const related = members.find(x => x.id === m.relatedTo);
+            if (related && m.parentId && related.parentId === m.parentId) continue;
+          }
+          // Deduplicate (A→B same as B→A)
+          const key = [m.id, m.relatedTo].sort().join(':');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          bonds.push({ from: m.id, to: m.relatedTo, label: REL_LABELS[m.relationship] || m.relationship });
+        }
+
+        if (bonds.length === 0) return;
+
+        const containerRect = treeContainer.getBoundingClientRect();
+        const svgNs = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNs, 'svg');
+        svg.setAttribute('class', 'bond-overlay');
+        svg.setAttribute('width', treeContainer.scrollWidth);
+        svg.setAttribute('height', treeContainer.scrollHeight);
+
+        // Define a marker for the dashed line
+        const defs = document.createElementNS(svgNs, 'defs');
+        svg.appendChild(defs);
+
+        for (const bond of bonds) {
+          const fromEl = treeContainer.querySelector(`[data-member-id="${bond.from}"]`);
+          const toEl = treeContainer.querySelector(`[data-member-id="${bond.to}"]`);
+          if (!fromEl || !toEl) continue;
+
+          const fromRect = fromEl.getBoundingClientRect();
+          const toRect = toEl.getBoundingClientRect();
+
+          // Coordinates relative to the container
+          const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+          const y1 = fromRect.bottom - containerRect.top;
+          const x2 = toRect.left + toRect.width / 2 - containerRect.left;
+          const y2 = toRect.bottom - containerRect.top;
+
+          // Midpoint for curve control and label
+          const mx = (x1 + x2) / 2;
+          const my = Math.max(y1, y2) + 30;
+
+          // Curved dashed path
+          const path = document.createElementNS(svgNs, 'path');
+          path.setAttribute('d', `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', 'var(--primary)');
+          path.setAttribute('stroke-width', '2');
+          path.setAttribute('stroke-dasharray', '6 4');
+          path.setAttribute('opacity', '0.5');
+          svg.appendChild(path);
+
+          // Label on the bond
+          const text = document.createElementNS(svgNs, 'text');
+          // Position label at the midpoint of the curve
+          const labelX = mx;
+          const labelY = (y1 + my + y2) / 3 + 5;
+          text.setAttribute('x', labelX);
+          text.setAttribute('y', labelY);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('class', 'bond-label');
+
+          // Background for readability
+          const bg = document.createElementNS(svgNs, 'rect');
+          text.textContent = bond.label;
+          svg.appendChild(text);
+
+          // After render, add background behind text
+          requestAnimationFrame(() => {
+            const bbox = text.getBBox();
+            if (bbox.width === 0) return;
+            const pad = 3;
+            bg.setAttribute('x', bbox.x - pad);
+            bg.setAttribute('y', bbox.y - pad);
+            bg.setAttribute('width', bbox.width + pad * 2);
+            bg.setAttribute('height', bbox.height + pad * 2);
+            bg.setAttribute('rx', '3');
+            bg.setAttribute('fill', 'var(--bg)');
+            bg.setAttribute('opacity', '0.9');
+            svg.insertBefore(bg, text);
+          });
+        }
+
+        treeContainer.style.position = 'relative';
+        treeContainer.appendChild(svg);
+      });
     }
 
     // ── Stats ──
