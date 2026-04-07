@@ -668,18 +668,29 @@
           <button id="toggle-blood" data-type="blood" aria-pressed="true">Bloodline</button>
           <button id="toggle-family" data-type="family" aria-pressed="false">Family</button>
         </div>
-        <div class="form-group"><label>Relationship</label></div>
-        <div class="rel-grid" id="rel-grid" role="group" aria-label="Relationship type">
+        <div class="form-group"><label>Official Relationship</label></div>
+        <div class="rel-grid" id="rel-grid" role="group" aria-label="Official relationship type">
           <button class="rel-chip" data-rel="child" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F476;</span>Child</button>
           <button class="rel-chip" data-rel="parent" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F468;</span>Parent</button>
           <button class="rel-chip" data-rel="spouse" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F491;</span>Spouse</button>
           <button class="rel-chip" data-rel="sibling" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46C;</span>Sibling</button>
-          <button class="rel-chip" data-rel="cousin" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46B;</span>Cousin</button>
-          <button class="rel-chip" data-rel="other" aria-pressed="true"><span class="rel-emoji" aria-hidden="true">&#x1F465;</span>Other</button>
+          <button class="rel-chip" data-rel="other" aria-pressed="true"><span class="rel-emoji" aria-hidden="true">&#x1F465;</span>None</button>
         </div>
         <div class="form-group" id="related-to-group">
           <label for="field-related-to">Related To</label>
           <select id="field-related-to"><option value="">None (standalone)</option></select>
+        </div>
+        <hr style="border:none;border-top:1px dashed var(--border);margin:20px 0 16px;">
+        <div class="form-group"><label>Unofficial Bond <span style="font-weight:400;text-transform:none;letter-spacing:0">(shown as dashed line)</span></label></div>
+        <div class="rel-grid" id="unofficial-grid" role="group" aria-label="Unofficial bond type">
+          <button class="rel-chip unofficial" data-urel="sibling" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46C;</span>Sister/Brother</button>
+          <button class="rel-chip unofficial" data-urel="cousin" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46B;</span>Cousin</button>
+          <button class="rel-chip unofficial" data-urel="close" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x2764;&#xFE0F;</span>Close bond</button>
+          <button class="rel-chip unofficial" data-urel="none" aria-pressed="true"><span class="rel-emoji" aria-hidden="true">&#x2796;</span>None</button>
+        </div>
+        <div class="form-group" id="unofficial-to-group" style="display:none">
+          <label for="field-unofficial-to">Unofficial Bond With</label>
+          <select id="field-unofficial-to"><option value="">None</option></select>
         </div>
         <button class="btn-primary" id="save-btn">Add Member</button>
         <button class="btn-danger" id="delete-btn" style="display:none">Delete Member</button>
@@ -723,8 +734,10 @@
     const PW_HASH = '19e3a3d473d5f3e0e2d589d65f78dfa1743b888eac1081247c79c8ef88fa54a6';
     const SESSION_KEY = 'treefam_session';
     const MAX_MEMBERS = 500;
-    const RELATIONSHIPS = ['child', 'parent', 'spouse', 'sibling', 'cousin', 'other'];
-    const REL_LABELS = { child: 'Child', parent: 'Parent', spouse: 'Spouse', sibling: 'Sibling', cousin: 'Cousin', other: 'Other' };
+    const RELATIONSHIPS = ['child', 'parent', 'spouse', 'sibling', 'other'];
+    const REL_LABELS = { child: 'Child', parent: 'Parent', spouse: 'Spouse', sibling: 'Sibling', other: 'Other' };
+    const UNOFFICIAL_BONDS = ['sibling', 'cousin', 'close', 'none'];
+    const BOND_LABELS = { sibling: 'Sister/Brother', cousin: 'Cousin', close: 'Close bond', none: '' };
 
     // ── DOM refs ──
     const $ = (id) => document.getElementById(id);
@@ -748,6 +761,7 @@
     let editingId = null;
     let currentLineType = 'blood';
     let currentRelationship = 'other';
+    let currentUnofficialBond = 'none';
     let toastTimer = null;
     let confirmCallback = null;
     let unsubscribe = null;
@@ -891,6 +905,8 @@
         relatedTo: typeof m.relatedTo === 'string' ? m.relatedTo : null,
         parentId: typeof m.parentId === 'string' ? m.parentId : null,
         spouseId: typeof m.spouseId === 'string' ? m.spouseId : null,
+        unofficialBond: UNOFFICIAL_BONDS.includes(m.unofficialBond) ? m.unofficialBond : 'none',
+        unofficialBondTo: typeof m.unofficialBondTo === 'string' ? m.unofficialBondTo : null,
       };
     }
 
@@ -934,13 +950,24 @@
     // ── Relationship chips ──
     function setRelationship(rel) {
       currentRelationship = rel;
-      document.querySelectorAll('.rel-chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.rel === rel));
+      document.querySelectorAll('.rel-chip[data-rel]').forEach(c => c.setAttribute('aria-pressed', c.dataset.rel === rel));
       // Show/hide "Related To" based on relationship
       $('related-to-group').style.display = (rel === 'other') ? 'none' : 'block';
     }
 
-    document.querySelectorAll('.rel-chip').forEach(chip => {
+    document.querySelectorAll('.rel-chip[data-rel]').forEach(chip => {
       chip.addEventListener('click', () => setRelationship(chip.dataset.rel));
+    });
+
+    // ── Unofficial bond chips ──
+    function setUnofficialBond(bond) {
+      currentUnofficialBond = bond;
+      document.querySelectorAll('.rel-chip[data-urel]').forEach(c => c.setAttribute('aria-pressed', c.dataset.urel === bond));
+      $('unofficial-to-group').style.display = (bond === 'none') ? 'none' : 'block';
+    }
+
+    document.querySelectorAll('.rel-chip[data-urel]').forEach(chip => {
+      chip.addEventListener('click', () => setUnofficialBond(chip.dataset.urel));
     });
 
     // ── Modal ──
@@ -973,6 +1000,24 @@
       select.appendChild(frag);
     }
 
+    function populateUnofficialTo(excludeId) {
+      const select = $('field-unofficial-to');
+      const frag = document.createDocumentFragment();
+      const defOpt = document.createElement('option');
+      defOpt.value = '';
+      defOpt.textContent = 'None';
+      frag.appendChild(defOpt);
+      for (const m of members) {
+        if (m.id === excludeId) continue;
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
+        frag.appendChild(opt);
+      }
+      select.innerHTML = '';
+      select.appendChild(frag);
+    }
+
     function openAddModal() {
       editingId = null;
       $('modal-title').textContent = 'Add Member';
@@ -987,6 +1032,9 @@
       setRelationship('other');
       populateRelatedTo();
       $('field-related-to').value = '';
+      setUnofficialBond('none');
+      populateUnofficialTo();
+      $('field-unofficial-to').value = '';
       openModal();
     }
 
@@ -1006,6 +1054,9 @@
       setRelationship(m.relationship || 'other');
       populateRelatedTo(id);
       $('field-related-to').value = m.relatedTo || '';
+      setUnofficialBond(m.unofficialBond || 'none');
+      populateUnofficialTo(id);
+      $('field-unofficial-to').value = m.unofficialBondTo || '';
       openModal();
     }
 
@@ -1034,9 +1085,6 @@
         case 'sibling':
           // Share the same parent as relatedTo
           parentId = relatedMember.parentId || null;
-          break;
-        case 'cousin':
-          // We store it as metadata; no direct parent/spouse link
           break;
         case 'other':
           break;
@@ -1077,6 +1125,11 @@
         }
       }
 
+      const unofficialBond = currentUnofficialBond;
+      const unofficialBondTo = (unofficialBond !== 'none') ? ($('field-unofficial-to').value || null) : null;
+
+      if (unofficialBondTo && unofficialBondTo === editingId) { toast('A member cannot have an unofficial bond with themselves'); return; }
+
       const id = editingId || genId();
       const data = {
         id,
@@ -1090,6 +1143,8 @@
         relatedTo: relatedToId,
         parentId,
         spouseId,
+        unofficialBond,
+        unofficialBondTo,
       };
 
       try {
@@ -1138,6 +1193,7 @@
           if (m.spouseId === id) await saveMemberToDb({ ...m, spouseId: null });
           if (m.parentId === id) await saveMemberToDb({ ...m, parentId: null });
           if (m.relatedTo === id) await saveMemberToDb({ ...m, relatedTo: null });
+          if (m.unofficialBondTo === id) await saveMemberToDb({ ...m, unofficialBond: 'none', unofficialBondTo: null });
         }
         await deleteMemberFromDb(id);
         toast('Member deleted');
@@ -1418,26 +1474,16 @@
       treeContainer.appendChild(treeRoot);
 
       // ── Draw unofficial bonds (dashed SVG lines) ──
-      // These are relationships stored as metadata that aren't structural
-      // (e.g., cousins who consider each other siblings)
       requestAnimationFrame(() => {
         const bonds = [];
         const seen = new Set();
         for (const m of members) {
-          if (!m.relatedTo || !m.relationship) continue;
-          // Skip structural links that are already drawn (child→parent, spouse)
-          if (m.relationship === 'child' && m.parentId === m.relatedTo) continue;
-          if (m.relationship === 'spouse' && m.spouseId === m.relatedTo) continue;
-          // Skip if the sibling relationship is already structurally shown (same parent)
-          if (m.relationship === 'sibling') {
-            const related = members.find(x => x.id === m.relatedTo);
-            if (related && m.parentId && related.parentId === m.parentId) continue;
-          }
+          if (!m.unofficialBondTo || !m.unofficialBond || m.unofficialBond === 'none') continue;
           // Deduplicate (A→B same as B→A)
-          const key = [m.id, m.relatedTo].sort().join(':');
+          const key = [m.id, m.unofficialBondTo].sort().join(':');
           if (seen.has(key)) continue;
           seen.add(key);
-          bonds.push({ from: m.id, to: m.relatedTo, label: REL_LABELS[m.relationship] || m.relationship });
+          bonds.push({ from: m.id, to: m.unofficialBondTo, label: BOND_LABELS[m.unofficialBond] || m.unofficialBond });
         }
 
         if (bonds.length === 0) return;
