@@ -882,6 +882,26 @@
       if (!isError) setTimeout(() => syncBar.classList.remove('visible'), 2000);
     }
 
+    // Fix siblings/children that lost their parentId
+    function healRelationships(memberList) {
+      const byId = new Map(memberList.map(m => [m.id, m]));
+      const fixes = [];
+      for (const m of memberList) {
+        if (m.parentId) continue; // already has a parent
+        // Sibling without parent → inherit parent of the related member
+        if (m.relationship === 'sibling' && m.relatedTo) {
+          const related = byId.get(m.relatedTo);
+          if (related && related.parentId) {
+            m.parentId = related.parentId;
+            fixes.push(m);
+          }
+        }
+      }
+      // Persist fixes to DB (fire-and-forget)
+      for (const m of fixes) saveMemberToDb(m);
+      return memberList;
+    }
+
     function startRealtimeSync() {
       showSync('Connecting to database...');
       unsubscribe = onSnapshot(membersCol, (snapshot) => {
@@ -891,6 +911,7 @@
           data.id = docSnap.id;
           if (validateMember(data)) members.push(data);
         });
+        healRelationships(members);
         renderAll();
         showSync(`Synced \u2022 ${members.length} members`);
       }, (error) => {
@@ -1580,7 +1601,7 @@
             const key = parent.id + ':' + m.id;
             if (!seen.has(key)) {
               seen.add(key);
-              lines.push({ from: parent.id, to: m.id, label: 'Child', style: 'spouse' });
+              lines.push({ from: parent.id, to: m.id, label: '', style: 'parent-child', lineType: parent.lineType });
             }
           }
         }
@@ -1623,18 +1644,23 @@
           const path = document.createElementNS(svgNs, 'path');
           path.setAttribute('d', `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
           path.setAttribute('fill', 'none');
-          if (line.style === 'spouse') {
-            path.setAttribute('stroke', 'var(--family)');
-            path.setAttribute('stroke-width', '2');
-            path.setAttribute('stroke-dasharray', '8 4');
-            path.setAttribute('opacity', '0.6');
+          if (line.style === 'parent-child') {
+            // Solid line matching the family tree connectors
+            const color = line.lineType === 'family' ? 'var(--family)' : 'var(--blood)';
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '3');
+            path.setAttribute('opacity', '0.5');
           } else {
+            // Dashed line for unofficial bonds
             path.setAttribute('stroke', 'var(--primary)');
             path.setAttribute('stroke-width', '2');
             path.setAttribute('stroke-dasharray', '6 4');
             path.setAttribute('opacity', '0.5');
           }
           svg.appendChild(path);
+
+          // Skip label for parent-child lines (the relationship is obvious)
+          if (line.style === 'parent-child') continue;
 
           const text = document.createElementNS(svgNs, 'text');
           const labelX = mx;
@@ -1643,7 +1669,6 @@
           text.setAttribute('y', labelY);
           text.setAttribute('text-anchor', 'middle');
           text.setAttribute('class', 'bond-label');
-          if (line.style === 'spouse') text.style.fill = 'var(--family)';
 
           const bg = document.createElementNS(svgNs, 'rect');
           text.textContent = line.label;
