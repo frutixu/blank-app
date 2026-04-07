@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src https://firestore.googleapis.com https://www.googleapis.com;">
   <title>TreeFam - Family Tree Builder</title>
   <style>
     :root {
@@ -41,7 +41,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-direction: column;
       padding: 24px;
     }
 
@@ -57,100 +56,62 @@
       box-shadow: 0 8px 32px rgba(0,0,0,0.2);
     }
 
-    .lock-box h1 {
-      font-size: 1.6rem;
-      color: var(--primary);
-      margin-bottom: 4px;
-    }
-
+    .lock-box h1 { font-size: 1.6rem; color: var(--primary); margin-bottom: 4px; }
     .lock-box h1 span { font-weight: 300; color: var(--text-light); }
-
-    .lock-box p {
-      font-size: 0.85rem;
-      color: var(--text-light);
-      margin-bottom: 24px;
-    }
+    .lock-box p { font-size: 0.85rem; color: var(--text-light); margin-bottom: 24px; }
 
     .lock-box .lock-icon {
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 20px;
-      background: var(--bg);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 56px; height: 56px; margin: 0 auto 20px;
+      background: var(--bg); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    .lock-box .lock-icon svg {
-      width: 28px;
-      height: 28px;
-      color: var(--primary);
-    }
+    .lock-box .lock-icon svg { width: 28px; height: 28px; color: var(--primary); }
 
-    .lock-input-group {
-      position: relative;
-      margin-bottom: 16px;
-    }
+    .lock-input-group { position: relative; margin-bottom: 16px; }
 
     .lock-input-group input {
-      width: 100%;
-      padding: 14px 48px 14px 16px;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      font-size: 1rem;
-      font-family: inherit;
-      background: var(--bg);
-      color: var(--text);
-      transition: border-color 0.2s;
+      width: 100%; padding: 14px 48px 14px 16px;
+      border: 2px solid var(--border); border-radius: 12px;
+      font-size: 1rem; font-family: inherit; background: var(--bg);
+      color: var(--text); transition: border-color 0.2s;
     }
 
-    .lock-input-group input:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    .lock-input-group input:focus { outline: none; border-color: var(--primary); }
 
     .lock-input-group .toggle-pw {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-light);
-      padding: 4px;
-      font-size: 1.1rem;
-      line-height: 1;
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--text-light);
+      padding: 4px; font-size: 1.1rem; line-height: 1;
     }
 
-    .lock-error {
-      color: var(--blood);
-      font-size: 0.8rem;
-      margin-bottom: 12px;
-      min-height: 1.2em;
-    }
+    .lock-error { color: var(--blood); font-size: 0.8rem; margin-bottom: 12px; min-height: 1.2em; }
 
     .lock-btn {
-      width: 100%;
-      padding: 14px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.2s;
+      width: 100%; padding: 14px; background: var(--primary); color: white;
+      border: none; border-radius: 12px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
     }
 
     .lock-btn:hover { background: var(--primary-dark); }
     .lock-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* ── App Shell (hidden until unlocked) ── */
+    /* ── App Shell ── */
     .app-shell { display: none; }
     .app-shell.unlocked { display: block; }
+
+    /* ── Sync indicator ── */
+    .sync-bar {
+      background: var(--primary-dark);
+      color: rgba(255,255,255,0.85);
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 3px 8px;
+      display: none;
+    }
+
+    .sync-bar.visible { display: block; }
+    .sync-bar.error { background: var(--blood); }
 
     /* ── Header ── */
     header {
@@ -171,17 +132,9 @@
     .header-actions { display: flex; gap: 8px; }
 
     .btn-icon {
-      background: rgba(255,255,255,0.15);
-      border: none;
-      color: white;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      font-size: 1.1rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: rgba(255,255,255,0.15); border: none; color: white;
+      width: 38px; height: 38px; border-radius: 50%; font-size: 1.1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: background 0.2s;
     }
 
@@ -189,26 +142,14 @@
 
     /* ── Tabs ── */
     .tabs {
-      display: flex;
-      background: var(--card);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 99;
+      display: flex; background: var(--card); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 99;
     }
 
     .tab {
-      flex: 1;
-      padding: 12px;
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-light);
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      cursor: pointer;
-      transition: all 0.2s;
+      flex: 1; padding: 12px; text-align: center; font-size: 0.85rem; font-weight: 600;
+      color: var(--text-light); background: none; border: none;
+      border-bottom: 3px solid transparent; cursor: pointer; transition: all 0.2s;
     }
 
     .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
@@ -217,168 +158,85 @@
     /* ── Views ── */
     .view { display: none; padding: 16px; max-width: 800px; margin: 0 auto; }
     .view.active { display: block; }
-
     #tree-view { padding: 16px; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     .tree-container {
-      min-height: 300px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px 10px;
+      min-height: 300px; display: flex; flex-direction: column;
+      align-items: center; padding: 20px 10px;
     }
 
-    .tree-empty {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-light);
-    }
-
+    .tree-empty { text-align: center; padding: 60px 20px; color: var(--text-light); }
     .tree-empty svg { width: 80px; height: 80px; opacity: 0.3; margin-bottom: 16px; }
     .tree-empty p { font-size: 1rem; margin-bottom: 8px; }
     .tree-empty small { font-size: 0.85rem; }
 
     /* ── Tree Nodes ── */
     .tree-level {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-      width: 100%;
+      display: flex; justify-content: center; gap: 16px;
+      flex-wrap: wrap; margin-bottom: 8px; width: 100%;
     }
 
-    .tree-branch {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+    .tree-branch { display: flex; flex-direction: column; align-items: center; }
 
-    .tree-couple {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
+    .tree-couple { display: flex; align-items: center; gap: 4px; }
 
-    .couple-link {
-      width: 14px;
-      height: 2px;
-      background: var(--family);
-      flex-shrink: 0;
-    }
+    .couple-link { width: 14px; height: 2px; background: var(--family); flex-shrink: 0; }
 
     .tree-node {
-      background: var(--card);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 10px 14px;
-      text-align: center;
-      min-width: 100px;
-      max-width: 150px;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      position: relative;
-      box-shadow: var(--shadow);
-      -webkit-tap-highlight-color: transparent;
+      background: var(--card); border: 2px solid var(--border); border-radius: var(--radius);
+      padding: 10px 14px; text-align: center; min-width: 100px; max-width: 150px;
+      cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+      position: relative; box-shadow: var(--shadow); -webkit-tap-highlight-color: transparent;
     }
 
     .tree-node:hover, .tree-node:focus-visible {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
     .tree-node[data-line="blood"] { border-color: var(--blood); }
     .tree-node[data-line="family"] { border-color: var(--family); }
 
-    .node-name {
-      font-weight: 600;
-      font-size: 0.85rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .node-info {
-      font-size: 0.7rem;
-      color: var(--text-light);
-      margin-top: 2px;
-    }
+    .node-name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-info { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+    .node-rel { font-size: 0.6rem; color: var(--text-light); margin-top: 1px; font-style: italic; }
 
     .node-badge {
-      position: absolute;
-      top: -8px;
-      right: -8px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      font-size: 0.6rem;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
+      position: absolute; top: -8px; right: -8px; width: 18px; height: 18px;
+      border-radius: 50%; font-size: 0.6rem; color: white;
+      display: flex; align-items: center; justify-content: center; font-weight: 700;
     }
 
     .node-badge[data-line="blood"] { background: var(--blood); }
     .node-badge[data-line="family"] { background: var(--family); }
 
-    .tree-connector {
-      display: flex;
-      justify-content: center;
-      margin: 4px 0;
-    }
-
-    .tree-connector .vline {
-      width: 2px;
-      height: 20px;
-      background: var(--blood);
-    }
+    .tree-connector { display: flex; justify-content: center; margin: 4px 0; }
+    .tree-connector .vline { width: 2px; height: 20px; background: var(--blood); }
 
     /* ── Legend ── */
     .legend {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      padding: 12px;
-      margin-bottom: 12px;
-      font-size: 0.8rem;
-      color: var(--text-light);
+      display: flex; gap: 16px; justify-content: center; padding: 12px;
+      margin-bottom: 12px; font-size: 0.8rem; color: var(--text-light);
     }
 
     .legend-item { display: flex; align-items: center; gap: 6px; }
-
     .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
     .legend-dot.blood { background: var(--blood); }
     .legend-dot.family { background: var(--family); }
 
     /* ── Members List ── */
     .member-card {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      box-shadow: var(--shadow);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      transition: transform 0.15s;
-      -webkit-tap-highlight-color: transparent;
+      background: var(--card); border-radius: var(--radius); padding: 14px 16px;
+      margin-bottom: 10px; box-shadow: var(--shadow); display: flex;
+      align-items: center; gap: 12px; cursor: pointer;
+      transition: transform 0.15s; -webkit-tap-highlight-color: transparent;
     }
 
     .member-card:active { transform: scale(0.98); }
 
     .member-avatar {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-      color: white;
-      font-weight: 700;
-      flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; color: white; font-weight: 700; flex-shrink: 0;
     }
 
     .member-avatar[data-line="blood"] { background: var(--blood); }
@@ -389,12 +247,8 @@
     .member-details .member-info { font-size: 0.8rem; color: var(--text-light); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 
     .member-line-tag {
-      font-size: 0.65rem;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 20px;
-      color: white;
-      flex-shrink: 0;
+      font-size: 0.65rem; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+      color: white; flex-shrink: 0;
     }
 
     .member-line-tag[data-line="blood"] { background: var(--blood); }
@@ -402,169 +256,107 @@
 
     /* ── FAB ── */
     .fab {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--primary);
-      color: white;
-      border: none;
-      font-size: 1.8rem;
-      line-height: 1;
-      box-shadow: 0 4px 16px rgba(74,124,89,0.4);
-      cursor: pointer;
-      z-index: 50;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s, background 0.2s;
-      -webkit-tap-highlight-color: transparent;
+      position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px;
+      border-radius: 50%; background: var(--primary); color: white; border: none;
+      font-size: 1.8rem; line-height: 1;
+      box-shadow: 0 4px 16px rgba(74,124,89,0.4); cursor: pointer; z-index: 50;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s, background 0.2s; -webkit-tap-highlight-color: transparent;
     }
 
     .fab:hover, .fab:focus-visible { background: var(--primary-dark); transform: scale(1.05); }
 
     /* ── Modal ── */
     .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 200;
-      align-items: flex-end;
-      justify-content: center;
-      -webkit-backdrop-filter: blur(2px);
-      backdrop-filter: blur(2px);
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 200; align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     }
 
     .modal-overlay.open { display: flex; }
 
     .modal {
-      background: var(--card);
-      border-radius: 20px 20px 0 0;
-      width: 100%;
-      max-width: 500px;
-      max-height: 90dvh;
-      overflow-y: auto;
+      background: var(--card); border-radius: 20px 20px 0 0; width: 100%;
+      max-width: 500px; max-height: 90dvh; overflow-y: auto;
       padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
       animation: slideUp 0.3s ease;
     }
 
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
     .modal-header {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      font-size: 1.2rem; font-weight: 700; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
     }
 
     .modal-close {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      color: var(--text-light);
-      cursor: pointer;
-      padding: 4px 8px;
-      line-height: 1;
+      background: none; border: none; font-size: 1.5rem;
+      color: var(--text-light); cursor: pointer; padding: 4px 8px; line-height: 1;
     }
 
     .form-group { margin-bottom: 16px; }
 
     .form-group label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--text-light);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-light);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
     .form-group input, .form-group select {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-size: 1rem;
-      font-family: inherit;
-      background: var(--bg);
-      color: var(--text);
-      transition: border-color 0.2s;
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 1rem; font-family: inherit;
+      background: var(--bg); color: var(--text); transition: border-color 0.2s;
       -webkit-appearance: none;
     }
 
-    .form-group input:focus, .form-group select:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
 
     .line-toggle {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
+      display: flex; gap: 8px; margin-bottom: 16px;
     }
 
     .line-toggle button {
-      flex: 1;
-      padding: 12px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg);
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
-      color: var(--text);
+      flex: 1; padding: 12px; border: 2px solid var(--border); border-radius: 10px;
+      background: var(--bg); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; font-family: inherit; color: var(--text);
     }
 
     .line-toggle button[aria-pressed="true"][data-type="blood"] {
-      border-color: var(--blood);
-      background: rgba(192,57,43,0.1);
-      color: var(--blood);
+      border-color: var(--blood); background: rgba(192,57,43,0.1); color: var(--blood);
     }
 
     .line-toggle button[aria-pressed="true"][data-type="family"] {
-      border-color: var(--family);
-      background: rgba(41,128,185,0.1);
-      color: var(--family);
+      border-color: var(--family); background: rgba(41,128,185,0.1); color: var(--family);
     }
 
+    /* ── Relationship chips ── */
+    .rel-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;
+    }
+
+    .rel-chip {
+      padding: 10px 8px; border: 2px solid var(--border); border-radius: 10px;
+      background: var(--bg); font-size: 0.8rem; font-weight: 600; text-align: center;
+      cursor: pointer; transition: all 0.2s; font-family: inherit; color: var(--text);
+    }
+
+    .rel-chip[aria-pressed="true"] {
+      border-color: var(--primary); background: rgba(74,124,89,0.1); color: var(--primary);
+    }
+
+    .rel-chip .rel-emoji { display: block; font-size: 1.2rem; margin-bottom: 2px; }
+
     .btn-primary {
-      width: 100%;
-      padding: 14px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.2s;
+      width: 100%; padding: 14px; background: var(--primary); color: white;
+      border: none; border-radius: 10px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
     }
 
     .btn-primary:hover { background: var(--primary-dark); }
 
     .btn-danger {
-      width: 100%;
-      padding: 12px;
-      background: none;
-      color: var(--blood);
-      border: 1.5px solid var(--blood);
-      border-radius: 10px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      margin-top: 10px;
+      width: 100%; padding: 12px; background: none; color: var(--blood);
+      border: 1.5px solid var(--blood); border-radius: 10px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 10px;
       transition: background 0.2s;
     }
 
@@ -572,136 +364,75 @@
 
     /* ── Filter / Search ── */
     .filter-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      -webkit-overflow-scrolling: touch;
+      display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto;
+      padding-bottom: 4px; -webkit-overflow-scrolling: touch;
     }
 
     .filter-pill {
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      border: 1.5px solid var(--border);
-      background: var(--card);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-      font-family: inherit;
-      color: var(--text);
+      padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--card); cursor: pointer;
+      white-space: nowrap; transition: all 0.2s; font-family: inherit; color: var(--text);
     }
 
     .filter-pill[aria-pressed="true"] {
-      background: var(--primary);
-      color: white;
-      border-color: var(--primary);
+      background: var(--primary); color: white; border-color: var(--primary);
     }
 
-    .search-bar {
-      margin-bottom: 16px;
-      position: relative;
-    }
+    .search-bar { margin-bottom: 16px; position: relative; }
 
     .search-bar input {
-      width: 100%;
-      padding: 10px 14px 10px 38px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      font-size: 0.95rem;
-      background: var(--card);
-      font-family: inherit;
-      color: var(--text);
+      width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 0.95rem; background: var(--card);
+      font-family: inherit; color: var(--text);
     }
 
     .search-bar input:focus { outline: none; border-color: var(--primary); }
 
     .search-bar .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
-      color: var(--text-light);
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; color: var(--text-light);
     }
 
-    /* ── Confirm Dialog ── */
+    /* ── Confirm / Toast ── */
     .confirm-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 300;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 300; align-items: center; justify-content: center; padding: 20px;
     }
 
     .confirm-overlay.open { display: flex; }
 
     .confirm-box {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 24px;
-      max-width: 340px;
-      width: 100%;
-      text-align: center;
+      background: var(--card); border-radius: var(--radius);
+      padding: 24px; max-width: 340px; width: 100%; text-align: center;
     }
 
     .confirm-box p { margin-bottom: 20px; font-size: 0.95rem; }
-
     .confirm-actions { display: flex; gap: 10px; }
 
     .confirm-actions button {
-      flex: 1;
-      padding: 10px;
-      border-radius: 10px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      border: none;
+      flex: 1; padding: 10px; border-radius: 10px; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer; font-family: inherit; border: none;
     }
 
     .confirm-actions .cancel-btn { background: var(--bg); color: var(--text); }
     .confirm-actions .delete-btn { background: var(--blood); color: white; }
 
-    /* ── Toast ── */
     .toast {
-      position: fixed;
-      bottom: 90px;
-      left: 50%;
+      position: fixed; bottom: 90px; left: 50%;
       transform: translateX(-50%) translateY(100px);
-      background: var(--text);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      z-index: 400;
-      transition: transform 0.3s;
-      pointer-events: none;
-      white-space: nowrap;
+      background: var(--text); color: white; padding: 10px 20px; border-radius: 10px;
+      font-size: 0.85rem; z-index: 400; transition: transform 0.3s;
+      pointer-events: none; white-space: nowrap;
     }
 
     .toast.show { transform: translateX(-50%) translateY(0); }
 
     /* ── Stats / Settings ── */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
 
     .stat-card {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 16px;
-      text-align: center;
-      box-shadow: var(--shadow);
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; text-align: center; box-shadow: var(--shadow);
     }
 
     .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
@@ -710,39 +441,25 @@
     .stat-card.family-stat .stat-value { color: var(--family); }
 
     .settings-section {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: var(--shadow);
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow);
     }
 
     .settings-section h3 { font-size: 0.9rem; margin-bottom: 12px; color: var(--text-light); }
 
     .settings-btn {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg);
-      font-size: 0.9rem;
-      cursor: pointer;
-      font-family: inherit;
-      margin-bottom: 8px;
-      text-align: left;
-      color: var(--text);
+      display: block; width: 100%; padding: 12px; border: 1.5px solid var(--border);
+      border-radius: 10px; background: var(--bg); font-size: 0.9rem; cursor: pointer;
+      font-family: inherit; margin-bottom: 8px; text-align: left; color: var(--text);
       transition: border-color 0.2s;
     }
 
     .settings-btn:hover { border-color: var(--primary); }
     .settings-btn.danger { color: var(--blood); border-color: var(--blood); }
 
-    /* ── Responsive ── */
     @media (min-width: 600px) {
       .modal { border-radius: 20px; margin-bottom: 40px; }
       .modal-overlay { align-items: center; }
-      header + .tabs { top: 0; }
     }
   </style>
 </head>
@@ -769,6 +486,8 @@
 
   <!-- ── App Shell ── -->
   <div class="app-shell" id="app-shell">
+
+    <div class="sync-bar" id="sync-bar"></div>
 
     <header>
       <h1>TreeFam <span>Family Tree</span></h1>
@@ -862,20 +581,23 @@
             <option value="other">Other</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>Line Type</label>
-        </div>
+        <div class="form-group"><label>Line Type</label></div>
         <div class="line-toggle" role="group" aria-label="Line type">
           <button id="toggle-blood" data-type="blood" aria-pressed="true">Bloodline</button>
           <button id="toggle-family" data-type="family" aria-pressed="false">Family</button>
         </div>
-        <div class="form-group">
-          <label for="field-parent">Parent</label>
-          <select id="field-parent"><option value="">None (root member)</option></select>
+        <div class="form-group"><label>Relationship</label></div>
+        <div class="rel-grid" id="rel-grid" role="group" aria-label="Relationship type">
+          <button class="rel-chip" data-rel="child" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F476;</span>Child</button>
+          <button class="rel-chip" data-rel="parent" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F468;</span>Parent</button>
+          <button class="rel-chip" data-rel="spouse" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F491;</span>Spouse</button>
+          <button class="rel-chip" data-rel="sibling" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46C;</span>Sibling</button>
+          <button class="rel-chip" data-rel="cousin" aria-pressed="false"><span class="rel-emoji" aria-hidden="true">&#x1F46B;</span>Cousin</button>
+          <button class="rel-chip" data-rel="other" aria-pressed="true"><span class="rel-emoji" aria-hidden="true">&#x1F465;</span>Other</button>
         </div>
-        <div class="form-group">
-          <label for="field-spouse">Spouse</label>
-          <select id="field-spouse"><option value="">None</option></select>
+        <div class="form-group" id="related-to-group">
+          <label for="field-related-to">Related To</label>
+          <select id="field-related-to"><option value="">None (standalone)</option></select>
         </div>
         <button class="btn-primary" id="save-btn">Add Member</button>
         <button class="btn-danger" id="delete-btn" style="display:none">Delete Member</button>
@@ -896,22 +618,31 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script>
-  'use strict';
-  (() => {
-    // ── Password Hash (SHA-256 of the password) ──
+  <!-- Firebase SDK (modular, from CDN) -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+    // ── Firebase config ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJ4UAMBlqJP-TQWvd8tddh5A4E1dY1STs",
+      authDomain: "treefam-app.firebaseapp.com",
+      projectId: "treefam-app",
+      storageBucket: "treefam-app.firebasestorage.app",
+      messagingSenderId: "238284563790",
+      appId: "1:238284563790:web:3cd6819ca2f36a3b286a1f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const membersCol = collection(db, 'members');
+
+    // ── Constants ──
     const PW_HASH = '19e3a3d473d5f3e0e2d589d65f78dfa1743b888eac1081247c79c8ef88fa54a6';
     const SESSION_KEY = 'treefam_session';
-    const DATA_KEY = 'treefam_members';
     const MAX_MEMBERS = 500;
-
-    // ── Utility: safe text escaping ──
-    function esc(str) {
-      if (!str) return '';
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
+    const RELATIONSHIPS = ['child', 'parent', 'spouse', 'sibling', 'cousin', 'other'];
+    const REL_LABELS = { child: 'Child', parent: 'Parent', spouse: 'Spouse', sibling: 'Sibling', cousin: 'Cousin', other: 'Other' };
 
     // ── DOM refs ──
     const $ = (id) => document.getElementById(id);
@@ -921,6 +652,7 @@
     const lockError = $('lock-error');
     const lockBtn = $('lock-btn');
     const togglePw = $('toggle-pw');
+    const syncBar = $('sync-bar');
     const treeContainer = $('tree-container');
     const membersList = $('members-list');
     const searchInput = $('search-input');
@@ -933,31 +665,27 @@
     let currentFilter = 'all';
     let editingId = null;
     let currentLineType = 'blood';
+    let currentRelationship = 'other';
     let toastTimer = null;
     let confirmCallback = null;
+    let unsubscribe = null;
 
-    // ── SHA-256 helper ──
+    // ── SHA-256 ──
     async function sha256(text) {
       const data = new TextEncoder().encode(text);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const buf = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     // ── Auth ──
     function isSessionValid() {
       const ts = sessionStorage.getItem(SESSION_KEY);
       if (!ts) return false;
-      // Session valid for 24h
       return (Date.now() - parseInt(ts, 10)) < 86400000;
     }
 
-    function grantSession() {
-      sessionStorage.setItem(SESSION_KEY, Date.now().toString());
-    }
-
-    function revokeSession() {
-      sessionStorage.removeItem(SESSION_KEY);
-    }
+    function grantSession() { sessionStorage.setItem(SESSION_KEY, Date.now().toString()); }
+    function revokeSession() { sessionStorage.removeItem(SESSION_KEY); }
 
     async function attemptUnlock() {
       const pw = lockPw.value;
@@ -980,12 +708,12 @@
     function unlock() {
       lockScreen.classList.add('hidden');
       appShell.classList.add('unlocked');
-      loadData();
-      renderAll();
+      startRealtimeSync();
     }
 
     function lock() {
       revokeSession();
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
       appShell.classList.remove('unlocked');
       lockScreen.classList.remove('hidden');
       lockPw.value = '';
@@ -993,7 +721,6 @@
       lockPw.focus();
     }
 
-    // Lock screen events
     lockBtn.addEventListener('click', attemptUnlock);
     lockPw.addEventListener('keydown', (e) => { if (e.key === 'Enter') attemptUnlock(); });
     togglePw.addEventListener('click', () => {
@@ -1002,32 +729,68 @@
       togglePw.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
     });
 
-    // ── Data layer ──
+    // ── Firestore real-time sync ──
+    function showSync(msg, isError) {
+      syncBar.textContent = msg;
+      syncBar.classList.toggle('error', !!isError);
+      syncBar.classList.add('visible');
+      if (!isError) setTimeout(() => syncBar.classList.remove('visible'), 2000);
+    }
+
+    function startRealtimeSync() {
+      showSync('Connecting to database...');
+      unsubscribe = onSnapshot(membersCol, (snapshot) => {
+        members = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          data.id = docSnap.id;
+          if (validateMember(data)) members.push(data);
+        });
+        renderAll();
+        showSync(`Synced \u2022 ${members.length} members`);
+      }, (error) => {
+        console.error('Firestore error:', error);
+        showSync('Sync error \u2014 changes may not be saved', true);
+      });
+    }
+
+    // ── Firestore writes ──
+    async function saveMemberToDb(member) {
+      const { id, ...data } = member;
+      await setDoc(doc(db, 'members', id), data);
+    }
+
+    async function deleteMemberFromDb(id) {
+      await deleteDoc(doc(db, 'members', id));
+    }
+
+    async function clearAllFromDb() {
+      const batch = writeBatch(db);
+      for (const m of members) batch.delete(doc(db, 'members', m.id));
+      await batch.commit();
+    }
+
+    async function importToDb(newMembers) {
+      const batch = writeBatch(db);
+      // Delete all existing
+      for (const m of members) batch.delete(doc(db, 'members', m.id));
+      // Add new
+      for (const m of newMembers) {
+        const { id, ...data } = m;
+        batch.set(doc(db, 'members', id), data);
+      }
+      await batch.commit();
+    }
+
+    // ── Data helpers ──
     function genId() {
       const arr = new Uint8Array(8);
       crypto.getRandomValues(arr);
       return Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 12);
     }
 
-    function loadData() {
-      try {
-        const raw = localStorage.getItem(DATA_KEY);
-        if (!raw) { members = []; return; }
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) { members = []; return; }
-        members = parsed.filter(validateMember).slice(0, MAX_MEMBERS);
-      } catch {
-        members = [];
-      }
-    }
-
-    function saveData() {
-      localStorage.setItem(DATA_KEY, JSON.stringify(members));
-    }
-
     function validateMember(m) {
-      return m
-        && typeof m.id === 'string' && m.id.length > 0
+      return m && typeof m.id === 'string' && m.id.length > 0
         && typeof m.firstName === 'string' && m.firstName.length > 0
         && (m.lineType === 'blood' || m.lineType === 'family')
         && (m.gender === 'male' || m.gender === 'female' || m.gender === 'other');
@@ -1040,10 +803,12 @@
         lastName: String(m.lastName || '').slice(0, 50).trim(),
         birthYear: (typeof m.birthYear === 'number' && m.birthYear >= 0 && m.birthYear <= 2100) ? m.birthYear : null,
         deathYear: (typeof m.deathYear === 'number' && m.deathYear >= 0 && m.deathYear <= 2100) ? m.deathYear : null,
-        gender: ['male','female','other'].includes(m.gender) ? m.gender : 'other',
+        gender: ['male', 'female', 'other'].includes(m.gender) ? m.gender : 'other',
         lineType: m.lineType === 'family' ? 'family' : 'blood',
-        parentId: (typeof m.parentId === 'string') ? m.parentId : null,
-        spouseId: (typeof m.spouseId === 'string') ? m.spouseId : null,
+        relationship: RELATIONSHIPS.includes(m.relationship) ? m.relationship : 'other',
+        relatedTo: typeof m.relatedTo === 'string' ? m.relatedTo : null,
+        parentId: typeof m.parentId === 'string' ? m.parentId : null,
+        spouseId: typeof m.spouseId === 'string' ? m.spouseId : null,
       };
     }
 
@@ -1055,8 +820,6 @@
         tab.setAttribute('aria-selected', 'true');
         $(tab.dataset.view).classList.add('active');
         if (tab.dataset.view === 'settings-view') updateStats();
-        if (tab.dataset.view === 'tree-view') renderTree();
-        if (tab.dataset.view === 'members-view') renderMembers();
       });
     });
 
@@ -1086,7 +849,19 @@
     $('toggle-blood').addEventListener('click', () => setLineType('blood'));
     $('toggle-family').addEventListener('click', () => setLineType('family'));
 
-    // ── Modal management ──
+    // ── Relationship chips ──
+    function setRelationship(rel) {
+      currentRelationship = rel;
+      document.querySelectorAll('.rel-chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.rel === rel));
+      // Show/hide "Related To" based on relationship
+      $('related-to-group').style.display = (rel === 'other') ? 'none' : 'block';
+    }
+
+    document.querySelectorAll('.rel-chip').forEach(chip => {
+      chip.addEventListener('click', () => setRelationship(chip.dataset.rel));
+    });
+
+    // ── Modal ──
     function openModal() {
       memberModal.classList.add('open');
       document.body.classList.add('modal-open');
@@ -1096,6 +871,24 @@
     function closeModal() {
       memberModal.classList.remove('open');
       document.body.classList.remove('modal-open');
+    }
+
+    function populateRelatedTo(excludeId) {
+      const select = $('field-related-to');
+      const frag = document.createDocumentFragment();
+      const defOpt = document.createElement('option');
+      defOpt.value = '';
+      defOpt.textContent = 'None (standalone)';
+      frag.appendChild(defOpt);
+      for (const m of members) {
+        if (m.id === excludeId) continue;
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
+        frag.appendChild(opt);
+      }
+      select.innerHTML = '';
+      select.appendChild(frag);
     }
 
     function openAddModal() {
@@ -1109,9 +902,9 @@
       $('field-death').value = '';
       $('field-gender').value = 'male';
       setLineType('blood');
-      populateDropdowns();
-      $('field-parent').value = '';
-      $('field-spouse').value = '';
+      setRelationship('other');
+      populateRelatedTo();
+      $('field-related-to').value = '';
       openModal();
     }
 
@@ -1128,39 +921,49 @@
       $('field-death').value = m.deathYear ?? '';
       $('field-gender').value = m.gender;
       setLineType(m.lineType);
-      populateDropdowns(id);
-      $('field-parent').value = m.parentId || '';
-      $('field-spouse').value = m.spouseId || '';
+      setRelationship(m.relationship || 'other');
+      populateRelatedTo(id);
+      $('field-related-to').value = m.relatedTo || '';
       openModal();
     }
 
-    function populateDropdowns(excludeId) {
-      const parentSelect = $('field-parent');
-      const spouseSelect = $('field-spouse');
-      // Build options using DocumentFragment for performance
-      const buildOptions = (defaultLabel) => {
-        const frag = document.createDocumentFragment();
-        const defOpt = document.createElement('option');
-        defOpt.value = '';
-        defOpt.textContent = defaultLabel;
-        frag.appendChild(defOpt);
-        for (const m of members) {
-          if (m.id === excludeId) continue;
-          const opt = document.createElement('option');
-          opt.value = m.id;
-          opt.textContent = `${m.firstName} ${m.lastName || ''}`.trim();
-          frag.appendChild(opt);
-        }
-        return frag;
-      };
-      parentSelect.innerHTML = '';
-      parentSelect.appendChild(buildOptions('None (root member)'));
-      spouseSelect.innerHTML = '';
-      spouseSelect.appendChild(buildOptions('None'));
+    // ── Resolve relationship into parentId / spouseId ──
+    function resolveRelationship(rel, relatedToId, memberId) {
+      let parentId = null;
+      let spouseId = null;
+
+      if (!relatedToId) return { parentId, spouseId };
+
+      const relatedMember = members.find(x => x.id === relatedToId);
+      if (!relatedMember) return { parentId, spouseId };
+
+      switch (rel) {
+        case 'child':
+          // This person is a child OF relatedTo → relatedTo is their parent
+          parentId = relatedToId;
+          break;
+        case 'parent':
+          // This person is a parent OF relatedTo → relatedTo's parent becomes this person
+          // We update relatedTo's parentId after save
+          break;
+        case 'spouse':
+          spouseId = relatedToId;
+          break;
+        case 'sibling':
+          // Share the same parent as relatedTo
+          parentId = relatedMember.parentId || null;
+          break;
+        case 'cousin':
+          // We store it as metadata; no direct parent/spouse link
+          break;
+        case 'other':
+          break;
+      }
+      return { parentId, spouseId };
     }
 
     // ── Save member ──
-    function saveMember() {
+    async function saveMember() {
       const firstName = $('field-first').value.trim().slice(0, 50);
       const lastName = $('field-last').value.trim().slice(0, 50);
       if (!firstName) { toast('First name is required'); return; }
@@ -1170,24 +973,17 @@
       const birthYear = birthVal ? parseInt(birthVal, 10) : null;
       const deathYear = deathVal ? parseInt(deathVal, 10) : null;
 
-      if (birthYear !== null && (isNaN(birthYear) || birthYear < 0 || birthYear > 2100)) {
-        toast('Invalid birth year'); return;
-      }
-      if (deathYear !== null && (isNaN(deathYear) || deathYear < 0 || deathYear > 2100)) {
-        toast('Invalid death year'); return;
-      }
-      if (birthYear !== null && deathYear !== null && deathYear < birthYear) {
-        toast('Death year cannot be before birth year'); return;
-      }
+      if (birthYear !== null && (isNaN(birthYear) || birthYear < 0 || birthYear > 2100)) { toast('Invalid birth year'); return; }
+      if (deathYear !== null && (isNaN(deathYear) || deathYear < 0 || deathYear > 2100)) { toast('Invalid death year'); return; }
+      if (birthYear !== null && deathYear !== null && deathYear < birthYear) { toast('Death year cannot be before birth year'); return; }
 
-      const parentId = $('field-parent').value || null;
-      const spouseId = $('field-spouse').value || null;
+      const relatedToId = $('field-related-to').value || null;
+      const { parentId, spouseId } = resolveRelationship(currentRelationship, relatedToId, editingId);
 
-      // Prevent self-referencing
       if (parentId && parentId === editingId) { toast('A member cannot be their own parent'); return; }
       if (spouseId && spouseId === editingId) { toast('A member cannot be their own spouse'); return; }
 
-      // Prevent circular parent chains
+      // Circular parent check
       if (editingId && parentId) {
         let current = parentId;
         const seen = new Set([editingId]);
@@ -1199,56 +995,74 @@
         }
       }
 
+      const id = editingId || genId();
       const data = {
+        id,
         firstName,
         lastName,
         birthYear,
         deathYear,
         gender: $('field-gender').value,
         lineType: currentLineType,
+        relationship: currentRelationship,
+        relatedTo: relatedToId,
         parentId,
         spouseId,
       };
 
-      if (editingId) {
-        const idx = members.findIndex(x => x.id === editingId);
-        if (idx !== -1) {
-          const oldMember = members[idx];
-          if (oldMember.spouseId && oldMember.spouseId !== data.spouseId) {
+      try {
+        // Handle old spouse cleanup
+        if (editingId) {
+          const oldMember = members.find(x => x.id === editingId);
+          if (oldMember && oldMember.spouseId && oldMember.spouseId !== spouseId) {
             const oldSpouse = members.find(x => x.id === oldMember.spouseId);
-            if (oldSpouse && oldSpouse.spouseId === editingId) oldSpouse.spouseId = null;
+            if (oldSpouse && oldSpouse.spouseId === editingId) {
+              await saveMemberToDb({ ...oldSpouse, spouseId: null });
+            }
           }
-          members[idx] = { ...members[idx], ...data };
         }
-        toast('Member updated');
-      } else {
-        if (members.length >= MAX_MEMBERS) { toast(`Maximum ${MAX_MEMBERS} members reached`); return; }
-        data.id = genId();
-        members.push(data);
-        toast('Member added');
-      }
 
-      // Sync bidirectional spouse link
-      if (data.spouseId) {
-        const spouse = members.find(x => x.id === data.spouseId);
-        if (spouse) spouse.spouseId = editingId || data.id;
-      }
+        await saveMemberToDb(data);
 
-      saveData();
-      closeModal();
-      renderAll();
+        // Sync bidirectional spouse
+        if (spouseId) {
+          const spouse = members.find(x => x.id === spouseId);
+          if (spouse && spouse.spouseId !== id) {
+            await saveMemberToDb({ ...spouse, spouseId: id });
+          }
+        }
+
+        // If relationship is "parent", update the relatedTo member's parentId
+        if (currentRelationship === 'parent' && relatedToId) {
+          const child = members.find(x => x.id === relatedToId);
+          if (child && child.parentId !== id) {
+            await saveMemberToDb({ ...child, parentId: id });
+          }
+        }
+
+        toast(editingId ? 'Member updated' : 'Member added');
+        closeModal();
+      } catch (err) {
+        console.error('Save error:', err);
+        toast('Failed to save. Check your connection.');
+      }
     }
 
     // ── Delete ──
-    function deleteMember(id) {
-      for (const m of members) {
-        if (m.spouseId === id) m.spouseId = null;
-        if (m.parentId === id) m.parentId = null;
+    async function deleteMember(id) {
+      try {
+        // Clean up references
+        for (const m of members) {
+          if (m.spouseId === id) await saveMemberToDb({ ...m, spouseId: null });
+          if (m.parentId === id) await saveMemberToDb({ ...m, parentId: null });
+          if (m.relatedTo === id) await saveMemberToDb({ ...m, relatedTo: null });
+        }
+        await deleteMemberFromDb(id);
+        toast('Member deleted');
+      } catch (err) {
+        console.error('Delete error:', err);
+        toast('Failed to delete. Check your connection.');
       }
-      members = members.filter(x => x.id !== id);
-      saveData();
-      renderAll();
-      toast('Member deleted');
     }
 
     // ── Confirm dialog ──
@@ -1279,7 +1093,7 @@
       toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
     }
 
-    // ── Render members list (DOM-based, no innerHTML with user data) ──
+    // ── Render members list ──
     function renderMembers() {
       const search = (searchInput.value || '').toLowerCase().trim();
       const filtered = members.filter(m => {
@@ -1320,9 +1134,14 @@
         const infoEl = document.createElement('p');
         infoEl.className = 'member-info';
         const years = m.birthYear ? (m.deathYear ? `${m.birthYear} - ${m.deathYear}` : `Born ${m.birthYear}`) : '';
-        const parent = m.parentId ? members.find(x => x.id === m.parentId) : null;
-        const parentInfo = parent ? `Child of ${parent.firstName}` : 'Root member';
-        infoEl.textContent = [years, parentInfo].filter(Boolean).join(' \u00B7 ');
+        const relLabel = m.relatedTo ? (() => {
+          const related = members.find(x => x.id === m.relatedTo);
+          return related ? `${REL_LABELS[m.relationship] || ''} of ${related.firstName}` : '';
+        })() : (m.parentId ? (() => {
+          const parent = members.find(x => x.id === m.parentId);
+          return parent ? `Child of ${parent.firstName}` : 'Root member';
+        })() : 'Root member');
+        infoEl.textContent = [years, relLabel].filter(Boolean).join(' \u00B7 ');
         details.appendChild(nameEl);
         details.appendChild(infoEl);
 
@@ -1339,7 +1158,7 @@
       membersList.appendChild(frag);
     }
 
-    // ── Render tree (DOM-based, cycle-safe) ──
+    // ── Render tree ──
     function renderTree() {
       treeContainer.innerHTML = '';
 
@@ -1351,7 +1170,7 @@
         return;
       }
 
-      // Precompute children index for O(1) lookups
+      // Precompute children index
       const childrenOf = new Map();
       for (const m of members) {
         if (m.parentId) {
@@ -1369,7 +1188,6 @@
         const branch = document.createElement('div');
         branch.className = 'tree-branch';
 
-        // Couple row
         const couple = document.createElement('div');
         couple.className = 'tree-couple';
         couple.appendChild(createNodeEl(member));
@@ -1384,7 +1202,6 @@
         }
         branch.appendChild(couple);
 
-        // Collect children (from both parent & spouse)
         const children = childrenOf.get(member.id) || [];
         const spouseChildren = (spouse && childrenOf.has(spouse.id))
           ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
@@ -1428,6 +1245,13 @@
         info.className = 'node-info';
         info.textContent = (m.birthYear || '?') + (m.deathYear ? ' - ' + m.deathYear : '');
 
+        const rel = document.createElement('div');
+        rel.className = 'node-rel';
+        if (m.relationship && m.relationship !== 'other') {
+          const related = m.relatedTo ? members.find(x => x.id === m.relatedTo) : null;
+          rel.textContent = related ? `${REL_LABELS[m.relationship]} of ${related.firstName}` : REL_LABELS[m.relationship];
+        }
+
         const badge = document.createElement('div');
         badge.className = 'node-badge';
         badge.setAttribute('data-line', m.lineType);
@@ -1435,6 +1259,7 @@
 
         node.appendChild(name);
         node.appendChild(info);
+        if (rel.textContent) node.appendChild(rel);
         node.appendChild(badge);
         return node;
       }
@@ -1449,7 +1274,7 @@
         if (node) topLevel.appendChild(node);
       }
 
-      // Handle orphans whose parents were deleted
+      // Orphans
       for (const m of members) {
         if (rendered.has(m.id)) continue;
         const node = buildNode(m, 0);
@@ -1465,7 +1290,6 @@
       $('stat-blood').textContent = members.filter(m => m.lineType === 'blood').length;
       $('stat-family').textContent = members.filter(m => m.lineType === 'family').length;
 
-      // Generations (iterative, no recursion)
       let maxGen = 0;
       const depthCache = new Map();
       for (const m of members) {
@@ -1481,9 +1305,7 @@
           if (!parent || chain.includes(parent.id)) break;
           current = parent;
         }
-        for (let i = 0; i < chain.length; i++) {
-          depthCache.set(chain[i], depth - i);
-        }
+        for (let i = 0; i < chain.length; i++) depthCache.set(chain[i], depth - i);
         if (depth > maxGen) maxGen = depth;
       }
       $('stat-generations').textContent = maxGen;
@@ -1510,23 +1332,22 @@
       toast('Data exported');
     }
 
-    function importData(e) {
+    function importDataFromFile(e) {
       const file = e.target.files[0];
       if (!file) return;
       if (file.size > 2 * 1024 * 1024) { toast('File too large (max 2MB)'); e.target.value = ''; return; }
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
           if (!Array.isArray(data)) { toast('Invalid file format'); return; }
           const validated = data.map(sanitizeMember).filter(validateMember).slice(0, MAX_MEMBERS);
           if (validated.length === 0) { toast('No valid members found in file'); return; }
-          members = validated;
-          saveData();
-          renderAll();
+          await importToDb(validated);
           toast(`Imported ${validated.length} members`);
-        } catch {
-          toast('Failed to parse file');
+        } catch (err) {
+          console.error('Import error:', err);
+          toast('Failed to import file');
         }
       };
       reader.readAsText(file);
@@ -1538,8 +1359,8 @@
     $('modal-close').addEventListener('click', closeModal);
     $('save-btn').addEventListener('click', saveMember);
     $('delete-btn').addEventListener('click', () => {
-      openConfirm('Delete this member and remove all their relationships?', 'Delete', () => {
-        deleteMember(editingId);
+      openConfirm('Delete this member and remove all their relationships?', 'Delete', async () => {
+        await deleteMember(editingId);
         closeModal();
       });
     });
@@ -1548,13 +1369,15 @@
     $('settings-export').addEventListener('click', exportData);
     $('btn-import').addEventListener('click', () => $('import-file').click());
     $('settings-import').addEventListener('click', () => $('import-file').click());
-    $('import-file').addEventListener('change', importData);
+    $('import-file').addEventListener('change', importDataFromFile);
     $('settings-clear').addEventListener('click', () => {
-      openConfirm('Delete ALL family data? This cannot be undone.', 'Delete All', () => {
-        members = [];
-        saveData();
-        renderAll();
-        toast('All data deleted');
+      openConfirm('Delete ALL family data? This cannot be undone.', 'Delete All', async () => {
+        try {
+          await clearAllFromDb();
+          toast('All data deleted');
+        } catch (err) {
+          toast('Failed to delete data');
+        }
       });
     });
     $('settings-lock').addEventListener('click', lock);
@@ -1562,11 +1385,9 @@
     $('confirm-action-btn').addEventListener('click', executeConfirm);
     $('confirm-cancel').addEventListener('click', closeConfirm);
 
-    // Close overlays on backdrop click
     memberModal.addEventListener('click', (e) => { if (e.target === memberModal) closeModal(); });
     confirmDialog.addEventListener('click', (e) => { if (e.target === confirmDialog) closeConfirm(); });
 
-    // Escape key handling
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (confirmDialog.classList.contains('open')) closeConfirm();
@@ -1580,7 +1401,6 @@
     } else {
       lockPw.focus();
     }
-  })();
   </script>
 </body>
 </html>
