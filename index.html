@@ -1503,7 +1503,16 @@
       }
 
       // ── Build the full tree ──
-      const roots = members.filter(m => !m.parentId);
+      // Filter roots: exclude spouse-only members whose partner has a parent
+      // (they'll be rendered alongside their partner in the tree)
+      const roots = members.filter(m => {
+        if (m.parentId) return false;
+        if (m.spouseId) {
+          const spouse = members.find(x => x.id === m.spouseId);
+          if (spouse && (spouse.parentId || spouse.spouseId !== m.id)) return false;
+        }
+        return true;
+      });
       const treeRoot = document.createElement('div');
       treeRoot.className = 'tree-root';
 
@@ -1513,7 +1522,7 @@
         if (node) treeRoot.appendChild(node);
       }
 
-      // Orphans (parentId points to deleted member)
+      // Orphans (parentId points to deleted member, or unconnected members)
       for (const m of members) {
         if (rendered.has(m.id)) continue;
         const node = buildBranch(m, 0);
