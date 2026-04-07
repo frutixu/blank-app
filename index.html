@@ -170,21 +170,77 @@
     .tree-empty p { font-size: 1rem; margin-bottom: 8px; }
     .tree-empty small { font-size: 0.85rem; }
 
-    /* ── Tree Nodes ── */
-    .tree-level {
-      display: flex; justify-content: center; gap: 16px;
-      flex-wrap: wrap; margin-bottom: 8px; width: 100%;
+    /* ── Tree Structure ── */
+    .tree-root {
+      display: flex; justify-content: center; gap: 40px;
+      padding: 10px 0;
     }
 
-    .tree-branch { display: flex; flex-direction: column; align-items: center; }
+    .tree-branch {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative;
+    }
 
-    .tree-couple { display: flex; align-items: center; gap: 4px; }
+    .tree-couple {
+      display: flex; align-items: center; gap: 0;
+      position: relative;
+    }
 
-    .couple-link { width: 14px; height: 2px; background: var(--family); flex-shrink: 0; }
+    .couple-link {
+      width: 20px; height: 2px; background: var(--family); flex-shrink: 0;
+      position: relative;
+    }
 
+    .couple-link::after {
+      content: '\2665'; position: absolute; top: -8px; left: 50%;
+      transform: translateX(-50%); font-size: 0.55rem; color: var(--family);
+    }
+
+    /* Vertical line from couple down to children bar */
+    .children-group {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative;
+    }
+
+    .vert-drop {
+      width: 2px; height: 24px; background: #aaa;
+      margin: 0 auto;
+    }
+
+    /* Horizontal bar connecting siblings */
+    .sibling-bar {
+      position: relative;
+      display: flex; justify-content: center;
+      min-height: 2px;
+    }
+
+    .sibling-bar::before {
+      content: ''; position: absolute; top: 0;
+      height: 2px; background: #aaa;
+      left: var(--bar-left, 50%);
+      right: var(--bar-right, 50%);
+    }
+
+    /* Individual child drop line from the bar */
+    .child-drop {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative;
+    }
+
+    .child-drop .vert-drop-child {
+      width: 2px; height: 20px; background: #aaa;
+    }
+
+    /* The row of children */
+    .children-row {
+      display: flex; justify-content: center; gap: 24px;
+      position: relative;
+    }
+
+    /* ── Tree Nodes ── */
     .tree-node {
       background: var(--card); border: 2px solid var(--border); border-radius: var(--radius);
-      padding: 10px 14px; text-align: center; min-width: 100px; max-width: 150px;
+      padding: 10px 14px; text-align: center; min-width: 110px; max-width: 160px;
       cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
       position: relative; box-shadow: var(--shadow); -webkit-tap-highlight-color: transparent;
     }
@@ -209,8 +265,9 @@
     .node-badge[data-line="blood"] { background: var(--blood); }
     .node-badge[data-line="family"] { background: var(--family); }
 
-    .tree-connector { display: flex; justify-content: center; margin: 4px 0; }
-    .tree-connector .vline { width: 2px; height: 20px; background: var(--blood); }
+    /* Generation depth indicator */
+    .tree-branch[data-depth="0"] > .tree-couple .tree-node { font-size: 0.95rem; }
+    .tree-branch[data-depth="0"] > .tree-couple .node-name { font-size: 0.9rem; }
 
     /* ── Legend ── */
     .legend {
@@ -1170,7 +1227,7 @@
         return;
       }
 
-      // Precompute children index
+      // Precompute children index — merge children under both parents of a couple
       const childrenOf = new Map();
       for (const m of members) {
         if (m.parentId) {
@@ -1181,19 +1238,34 @@
 
       const rendered = new Set();
 
-      function buildNode(member, depth) {
+      function getCouple(member) {
+        const spouse = member.spouseId ? members.find(x => x.id === member.spouseId) : null;
+        return (spouse && !rendered.has(spouse.id)) ? spouse : null;
+      }
+
+      function getAllChildren(member, spouse) {
+        const children = childrenOf.get(member.id) || [];
+        const spouseChildren = (spouse && childrenOf.has(spouse.id))
+          ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
+          : [];
+        return [...children, ...spouseChildren];
+      }
+
+      function buildBranch(member, depth) {
         if (rendered.has(member.id) || depth > 20) return null;
         rendered.add(member.id);
 
         const branch = document.createElement('div');
         branch.className = 'tree-branch';
+        branch.setAttribute('data-depth', depth);
 
+        // ── Couple row ──
         const couple = document.createElement('div');
         couple.className = 'tree-couple';
         couple.appendChild(createNodeEl(member));
 
-        const spouse = member.spouseId ? members.find(x => x.id === member.spouseId) : null;
-        if (spouse && !rendered.has(spouse.id)) {
+        const spouse = getCouple(member);
+        if (spouse) {
           rendered.add(spouse.id);
           const link = document.createElement('div');
           link.className = 'couple-link';
@@ -1202,28 +1274,63 @@
         }
         branch.appendChild(couple);
 
-        const children = childrenOf.get(member.id) || [];
-        const spouseChildren = (spouse && childrenOf.has(spouse.id))
-          ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
-          : [];
-        const allChildren = [...children, ...spouseChildren];
+        // ── Children ──
+        const allChildren = getAllChildren(member, spouse);
+        if (allChildren.length === 0) return branch;
 
-        if (allChildren.length > 0) {
-          const connector = document.createElement('div');
-          connector.className = 'tree-connector';
-          const vline = document.createElement('div');
-          vline.className = 'vline';
-          connector.appendChild(vline);
-          branch.appendChild(connector);
+        // Vertical drop from couple center
+        const dropLine = document.createElement('div');
+        dropLine.className = 'vert-drop';
+        branch.appendChild(dropLine);
 
-          const level = document.createElement('div');
-          level.className = 'tree-level';
-          for (const child of allChildren) {
-            const childNode = buildNode(child, depth + 1);
-            if (childNode) level.appendChild(childNode);
-          }
-          branch.appendChild(level);
+        if (allChildren.length === 1) {
+          // Single child — straight vertical line, no horizontal bar
+          const childBranch = buildBranch(allChildren[0], depth + 1);
+          if (childBranch) branch.appendChild(childBranch);
+          return branch;
         }
+
+        // Multiple children — horizontal sibling bar + individual drops
+        const childrenGroup = document.createElement('div');
+        childrenGroup.className = 'children-group';
+
+        const childrenRow = document.createElement('div');
+        childrenRow.className = 'children-row';
+
+        const childDrops = [];
+        for (const child of allChildren) {
+          const drop = document.createElement('div');
+          drop.className = 'child-drop';
+
+          const vline = document.createElement('div');
+          vline.className = 'vert-drop-child';
+          drop.appendChild(vline);
+
+          const childBranch = buildBranch(child, depth + 1);
+          if (childBranch) {
+            drop.appendChild(childBranch);
+            childDrops.push(drop);
+            childrenRow.appendChild(drop);
+          }
+        }
+
+        childrenGroup.appendChild(childrenRow);
+        branch.appendChild(childrenGroup);
+
+        // Draw the horizontal sibling bar via a post-render measurement
+        requestAnimationFrame(() => {
+          if (childDrops.length < 2) return;
+          const first = childDrops[0];
+          const last = childDrops[childDrops.length - 1];
+          const rowRect = childrenRow.getBoundingClientRect();
+          const firstRect = first.getBoundingClientRect();
+          const lastRect = last.getBoundingClientRect();
+          const leftPx = firstRect.left + firstRect.width / 2 - rowRect.left;
+          const rightPx = rowRect.right - (lastRect.left + lastRect.width / 2);
+          childrenRow.style.setProperty('--bar-left', leftPx + 'px');
+          childrenRow.style.setProperty('--bar-right', rightPx + 'px');
+          childrenRow.classList.add('sibling-bar');
+        });
 
         return branch;
       }
@@ -1264,24 +1371,25 @@
         return node;
       }
 
+      // ── Build the full tree ──
       const roots = members.filter(m => !m.parentId);
-      const topLevel = document.createElement('div');
-      topLevel.className = 'tree-level';
+      const treeRoot = document.createElement('div');
+      treeRoot.className = 'tree-root';
 
       for (const root of roots) {
         if (rendered.has(root.id)) continue;
-        const node = buildNode(root, 0);
-        if (node) topLevel.appendChild(node);
+        const node = buildBranch(root, 0);
+        if (node) treeRoot.appendChild(node);
       }
 
-      // Orphans
+      // Orphans (parentId points to deleted member)
       for (const m of members) {
         if (rendered.has(m.id)) continue;
-        const node = buildNode(m, 0);
-        if (node) topLevel.appendChild(node);
+        const node = buildBranch(m, 0);
+        if (node) treeRoot.appendChild(node);
       }
 
-      treeContainer.appendChild(topLevel);
+      treeContainer.appendChild(treeRoot);
     }
 
     // ── Stats ──
