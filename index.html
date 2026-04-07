@@ -1370,7 +1370,11 @@
 
       function getCouple(member) {
         const spouse = member.spouseId ? members.find(x => x.id === member.spouseId) : null;
-        return (spouse && !rendered.has(spouse.id)) ? spouse : null;
+        if (!spouse || rendered.has(spouse.id)) return null;
+        // Don't pull a spouse who has their own parent in the tree —
+        // they should be rendered in their parent's branch instead.
+        if (spouse.parentId && members.some(x => x.id === spouse.parentId)) return null;
+        return spouse;
       }
 
       function getAllChildren(member, spouse) {
@@ -1378,6 +1382,15 @@
         const spouseChildren = (spouse && childrenOf.has(spouse.id))
           ? childrenOf.get(spouse.id).filter(c => !children.some(ch => ch.id === c.id))
           : [];
+        // Also include children of member's spouse even when spouse is rendered elsewhere
+        if (!spouse && member.spouseId) {
+          const remoteSpouse = members.find(x => x.id === member.spouseId);
+          if (remoteSpouse && childrenOf.has(remoteSpouse.id)) {
+            const remoteChildren = childrenOf.get(remoteSpouse.id)
+              .filter(c => !children.some(ch => ch.id === c.id));
+            return [...children, ...remoteChildren];
+          }
+        }
         return [...children, ...spouseChildren];
       }
 
@@ -1507,9 +1520,11 @@
       // (they'll be rendered alongside their partner in the tree)
       const roots = members.filter(m => {
         if (m.parentId) return false;
+        // Exclude spouse-only members whose partner has a parent
+        // (they'll be rendered via getCouple alongside their partner)
         if (m.spouseId) {
           const spouse = members.find(x => x.id === m.spouseId);
-          if (spouse && (spouse.parentId || spouse.spouseId !== m.id)) return false;
+          if (spouse && spouse.parentId && members.some(x => x.id === spouse.parentId)) return false;
         }
         return true;
       });
@@ -1531,20 +1546,35 @@
 
       treeContainer.appendChild(treeRoot);
 
-      // ── Draw unofficial bonds (dashed SVG lines) ──
+      // ── Draw SVG overlay lines (cross-tree spouses + unofficial bonds) ──
       requestAnimationFrame(() => {
-        const bonds = [];
+        const lines = [];
         const seen = new Set();
+
+        // Cross-tree spouse links (spouses rendered in separate branches)
+        for (const m of members) {
+          if (!m.spouseId) continue;
+          const key = [m.id, m.spouseId].sort().join(':');
+          if (seen.has(key)) continue;
+          const spouse = members.find(x => x.id === m.spouseId);
+          if (!spouse) continue;
+          // Only draw if both have their own parentId (rendered in separate branches)
+          if (m.parentId && spouse.parentId) {
+            seen.add(key);
+            lines.push({ from: m.id, to: m.spouseId, label: 'Spouse', style: 'spouse' });
+          }
+        }
+
+        // Unofficial bonds
         for (const m of members) {
           if (!m.unofficialBondTo || !m.unofficialBond || m.unofficialBond === 'none') continue;
-          // Deduplicate (A→B same as B→A)
           const key = [m.id, m.unofficialBondTo].sort().join(':');
           if (seen.has(key)) continue;
           seen.add(key);
-          bonds.push({ from: m.id, to: m.unofficialBondTo, label: BOND_LABELS[m.unofficialBond] || m.unofficialBond });
+          lines.push({ from: m.id, to: m.unofficialBondTo, label: BOND_LABELS[m.unofficialBond] || m.unofficialBond, style: 'bond' });
         }
 
-        if (bonds.length === 0) return;
+        if (lines.length === 0) return;
 
         const containerRect = treeContainer.getBoundingClientRect();
         const scale = panZoom.scale || 1;
@@ -1554,50 +1584,51 @@
         svg.setAttribute('width', treeContainer.scrollWidth);
         svg.setAttribute('height', treeContainer.scrollHeight);
 
-        for (const bond of bonds) {
-          const fromEl = treeContainer.querySelector(`[data-member-id="${bond.from}"]`);
-          const toEl = treeContainer.querySelector(`[data-member-id="${bond.to}"]`);
+        for (const line of lines) {
+          const fromEl = treeContainer.querySelector(`[data-member-id="${line.from}"]`);
+          const toEl = treeContainer.querySelector(`[data-member-id="${line.to}"]`);
           if (!fromEl || !toEl) continue;
 
           const fromRect = fromEl.getBoundingClientRect();
           const toRect = toEl.getBoundingClientRect();
 
-          // Coordinates relative to the container, compensating for scale transform
           const x1 = (fromRect.left + fromRect.width / 2 - containerRect.left) / scale;
-          const y1 = (fromRect.bottom - containerRect.top) / scale;
+          const y1 = ((fromRect.top + fromRect.bottom) / 2 - containerRect.top) / scale;
           const x2 = (toRect.left + toRect.width / 2 - containerRect.left) / scale;
-          const y2 = (toRect.bottom - containerRect.top) / scale;
+          const y2 = ((toRect.top + toRect.bottom) / 2 - containerRect.top) / scale;
 
-          // Midpoint for curve control and label
           const mx = (x1 + x2) / 2;
           const my = Math.max(y1, y2) + 30;
 
-          // Curved dashed path
           const path = document.createElementNS(svgNs, 'path');
           path.setAttribute('d', `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
           path.setAttribute('fill', 'none');
-          path.setAttribute('stroke', 'var(--primary)');
-          path.setAttribute('stroke-width', '2');
-          path.setAttribute('stroke-dasharray', '6 4');
-          path.setAttribute('opacity', '0.5');
+          if (line.style === 'spouse') {
+            path.setAttribute('stroke', 'var(--family)');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-dasharray', '8 4');
+            path.setAttribute('opacity', '0.6');
+          } else {
+            path.setAttribute('stroke', 'var(--primary)');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-dasharray', '6 4');
+            path.setAttribute('opacity', '0.5');
+          }
           svg.appendChild(path);
 
-          // Label on the bond
           const text = document.createElementNS(svgNs, 'text');
-          // Position label at the midpoint of the curve
           const labelX = mx;
           const labelY = (y1 + my + y2) / 3 + 5;
           text.setAttribute('x', labelX);
           text.setAttribute('y', labelY);
           text.setAttribute('text-anchor', 'middle');
           text.setAttribute('class', 'bond-label');
+          if (line.style === 'spouse') text.style.fill = 'var(--family)';
 
-          // Background for readability
           const bg = document.createElementNS(svgNs, 'rect');
-          text.textContent = bond.label;
+          text.textContent = line.label;
           svg.appendChild(text);
 
-          // After render, add background behind text
           requestAnimationFrame(() => {
             const bbox = text.getBBox();
             if (bbox.width === 0) return;
